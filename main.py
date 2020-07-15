@@ -6,8 +6,8 @@ import traceback
 import discord
 import yaml
 
+from cogs.responder import Responder
 from util import log
-from util.cogs.responder import Responder
 
 
 class KittyBot(discord.ext.commands.bot.Bot):
