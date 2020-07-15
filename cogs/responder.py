@@ -158,3 +158,7 @@ class Responder(commands.Cog):
         comm = self._find_one(message.content)
         if comm and self._reply_allowed(comm, message):
             await message.channel.send(comm['reply'])
+
+
+def setup(bot):
+    bot.add_cog(Responder(bot))

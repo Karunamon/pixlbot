@@ -3,14 +3,13 @@ import atexit
 import sys
 import traceback
 
-import discord
 import yaml
+from discord.ext.commands.bot import Bot
 
-from cogs.responder import Responder
 from util import log
 
 
-class KittyBot(discord.ext.commands.bot.Bot):
+class KittyBot(Bot):
     config = None
     ready = False
     sentry = None
@@ -27,11 +26,13 @@ class KittyBot(discord.ext.commands.bot.Bot):
             import sentry_sdk
             self.sentry = sentry_sdk
             self.sentry.init(self.config['sentry']['init_url'], environment="production")
-            self.logger.warn('sentry.io integration enabled')
+            self.logger.warning('sentry.io integration enabled')
 
         # Cogs
         self.logger.info("Loading cogs..")
-        self.add_cog(Responder(self))
+        for ext in self.config['system']['plugins']:
+            self.logger.info(f"Attempting to load {ext}")
+            self.load_extension(ext)
 
     async def on_error(self, event, *args, **kwargs):
         # Sentry.io integration
@@ -52,10 +53,10 @@ class KittyBot(discord.ext.commands.bot.Bot):
         self.logger.info("Logged in and serving!")
 
     async def on_disconnect(self):
-        self.logger.warn("Disconnected!")
+        self.logger.warning("Disconnected!")
 
     def shutdown(self):
-        self.logger.warn("Shutting down")
+        self.logger.warning("Shutting down")
 
 
 with open('config.yml', 'r') as file:
