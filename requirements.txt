@@ -1,0 +1,4 @@
+discord.py
+sentry-sdk
+blitzdb
+pyyaml~=5.3.1

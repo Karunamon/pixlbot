@@ -1,0 +1,6 @@
+.venv
+.vscode
+.idea
+responder-db
+log
+config.yml
