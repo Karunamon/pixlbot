@@ -9,7 +9,7 @@ from discord.ext.commands.bot import Bot
 from util import log
 
 
-class KittyBot(Bot):
+class PixlBot(Bot):
     config = None
     ready = False
     sentry = None
@@ -62,6 +62,6 @@ class KittyBot(Bot):
 with open('config.yml', 'r') as file:
     conf = yaml.safe_load(file)
 
-bot = KittyBot(bot_config=conf)
+bot = PixlBot(bot_config=conf)
 atexit.register(bot.shutdown)
 bot.run(conf['system']['bot_token'])
