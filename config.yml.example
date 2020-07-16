@@ -4,5 +4,14 @@ system:
   command_prefix: '!'
   plugins:
     - cogs.responder
+    - cogs.randomplaying
+RandomNowPlaying:
+  intervalmin: 60
+  intervalmax: 900
+  items:
+    - Hello Kitty Island Adventure
+    - Death Stranding
+    - Outer Wilds
+    - Megaman Battle Network
 #sentry:
 #  init_url:
