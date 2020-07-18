@@ -9,8 +9,8 @@ def mkembed(kind: str, description: str, **kwargs) -> discord.Embed:
     e = discord.Embed(
         title=kind.capitalize(),
         description=description,
-        color=kindmap['kind']
+        color=kindmap[kind]
     )
-    for k, v in kwargs:
+    for k, v in kwargs.items():
         e.add_field(name=k, value=v)
     return e
