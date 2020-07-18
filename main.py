@@ -35,10 +35,10 @@ class PixlBot(Bot):
             self.load_extension(ext)
 
     async def on_error(self, event, *args, **kwargs):
-        # Sentry.io integration
         exc = sys.exc_info()
         self.logger.error(f"{exc}: {event} -- {args} -- {kwargs}")
         self.logger.error(f"{traceback.extract_tb(exc[2])}")
+        # Sentry.io integration
         if self.sentry:
             with self.sentry.configure_scope() as scope:
                 scope.set_tag("bot_event", event)
