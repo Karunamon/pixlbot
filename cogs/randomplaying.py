@@ -20,6 +20,10 @@ class RandomNowPlaying(commands.Cog):
             self.bot.logger.debug(f"Sleeping for {interval} seconds")
             await asyncio.sleep(interval)
 
+    async def on_ready(self):
+        """Now playing status is lost on reconnect, so we force it to update."""
+        await self._setnowplaying()
+
 
 def setup(bot):
     bot.add_cog(RandomNowPlaying(bot))
