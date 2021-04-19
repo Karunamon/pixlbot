@@ -1,5 +1,7 @@
 import discord
 
+guilds = []
+
 
 def mkembed(kind: str, description: str, **kwargs) -> discord.Embed:
     """Creates a discordpy Embed with some sane defaults. "Kind" must be "done", "error", or "info"."""
@@ -14,3 +16,8 @@ def mkembed(kind: str, description: str, **kwargs) -> discord.Embed:
     for k, v in kwargs.items():
         e.add_field(name=k, value=v)
     return e
+
+
+def update_guilds(guildlist: list):
+    global guilds
+    guilds = [x.id for x in guildlist]

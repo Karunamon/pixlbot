@@ -4,8 +4,37 @@ import discord
 import discord.ext.commands.context as context
 from blitzdb import Document, FileBackend
 from discord.ext import commands
+from discord_slash import cog_ext, SlashContext
+from discord_slash.utils.manage_commands import create_option
 
+import util
 from util import mkembed
+
+respond_to = create_option(
+    name="respond_to",
+    option_type=3,
+    description="Text to respond to",
+    required=True
+)
+response = create_option(
+    name="response",
+    option_type=3,
+    description="Text to reply with",
+    required=True
+)
+
+restrict_user = create_option(
+    name="restricted_user",
+    option_type=6,
+    description="The user(s) that the response applies to",
+    required=False
+)
+restrict_channel = create_option(
+    name="restricted_channel",
+    option_type=7,
+    description="The channel(s) that the response applies to",
+    required=False
+)
 
 
 class ResponseCommand(Document):
@@ -15,7 +44,7 @@ class ResponseCommand(Document):
 class Responder(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.backend = FileBackend('./responder-db')
+        self.backend = FileBackend('db')
         self.backend.autocommit = True
         bot.logger.info("Responder plugin ready")
 
@@ -57,71 +86,75 @@ class Responder(commands.Cog):
             else:
                 return True
 
-    @commands.command()
-    async def addresponse(self, ctx: context, name: str, *responsen):
+    @cog_ext.cog_subcommand(base="Autoresponder", name="addresponse",
+                            description="Adds an automatic response to certain text",
+                            options=[respond_to, response], guild_ids=util.guilds)
+    async def addresponse(self, ctx: SlashContext, respond_to: str, response: str):
         """Adds an automatic response to (name) as (response)
         The first word (name) is the text that will be replied to. Everything else is what it will be replied to with.
         If you want to reply to an entire phrase, enclose name in quotes."""
-        arg2 = " ".join(responsen)
-        if self._find_one(name):
-            await ctx.send(embed=mkembed('error', f"'{name}' already exists."))
+        if self._find_one(respond_to):
+            await ctx.send(embed=mkembed('error', f"'{respond_to}' already exists."))
             return
         else:
             comm = ResponseCommand(
-                {'command': name, 'reply': arg2, 'creator_str': str(ctx.author), 'creator_id': ctx.author.id}
+                {'command': respond_to, 'reply': response, 'creator_str': str(ctx.author), 'creator_id': ctx.author.id}
             )
             self.backend.save(comm)
-            self.bot.logger.info(f"'{name}' was added by {ctx.author.display_name}")
-            await ctx.send(embed=mkembed('done', f"Saved: {name} => {arg2}"))
+            self.bot.logger.info(f"'{response}' was added by {ctx.author.display_name}")
+            await ctx.send(embed=mkembed('done', "Autoresponse saved.", reply_to=respond_to, reply_with=response))
 
-    @commands.command()
-    async def delresponse(self, ctx: context, name: str):
+    @cog_ext.cog_subcommand(base="Autoresponder", name="delresponse",
+                            description="Removes an automatic reponse from certain text",
+                            options=[respond_to], guild_ids=util.guilds)
+    async def delresponse(self, ctx: SlashContext, respond_to: str):
         """Removes an autoresponse.
         Only the initial creator of a response can remove it."""
-        comm = self._find_one(name)
+        comm = self._find_one(respond_to)
         if not comm:
-            ctx.send(embed=mkembed('error', f"{name} is not defined."))
+            await ctx.send(embed=mkembed('error', f"{respond_to} is not defined."))
             return
         elif not ctx.author.id == comm['creator_id']:
-            await ctx.send(embed=mkembed('error', f"You are not the creator of {name}. Ask {comm['creator_str']}"))
+            await ctx.send(
+                embed=mkembed('error', f"You are not the creator of {respond_to}. Ask {comm['creator_str']}"))
         else:
             self.backend.delete(comm)
-            self.bot.logger.info(f"'{name}' was deleted by {ctx.author.display_name}")
-            await ctx.send(embed=mkembed('error', f"{name} has been removed."))
+            self.bot.logger.info(f"'{respond_to}' was deleted by {ctx.author.display_name}")
+            await ctx.send(embed=mkembed('info', f"{respond_to} has been removed."))
 
-    @commands.command()
-    async def responselimit(self, ctx: context, name: str, *tags: str):
-        """Adds a restriction mode on a response so it only triggers in certain circumstances.
-        Tags is a space-separated list of users and channels that this responder will apply to. These must be
-        discord tags or pings, i.e. discord must show them as links, not just text.
-        If the word NONE is used, all restrictions are removed.
-        """
-        comm = self._find_one(name)
+    # @commands.command()
+    # @cog_ext.cog_subcommand(base="Autoresponder", name="limit_user",
+    #                         description="Limit a response to triggering on a certain user. Leave users blank to remove.",
+    #                         options=[respond_to, restrict_user],
+    #                         guild_ids=util.guilds)
+    async def limitchannel(self, ctx: SlashContext, respond_to: str, **kwargs):
+        comm = self._find_one(respond_to)
         if not comm:
-            await ctx.send(embed=mkembed('error', f"{name} does not exist."))
+            await ctx.send(embed=mkembed('error', f"'{respond_to}' does not exist."))
             return
         if not ctx.author.id == comm['creator_id']:
-            await ctx.send(embed=mkembed('error', f"You are not the creator of {name}. Ask {comm['creator_str']}"))
+            await ctx.send(
+                embed=mkembed('error', f"You are not the creator of '{respond_to}'. Ask {comm['creator_str']}"))
             return
-        if tags[0] == "NONE":
+        if len(kwargs) == 0:
             comm["restrictions"] = {}
             self.backend.save(comm)
-            await ctx.send(embed=mkembed('done', f"All restrictions removed from {name}"))
+            await ctx.send(embed=mkembed('done', f"All restrictions removed from {respond_to}"))
             return
-        if ctx.message.mentions:
+        if kwargs['restrict_user']:
             if not comm.get("restrictions"):
                 comm["restrictions"] = {}
             elif not comm["restrictions"].get("users"):
                 comm["restrictions"]["users"] = []
             comm["restrictions"]["users"] = list(set(
-                comm["restrictions"]["users"] + [u.id for u in ctx.message.mentions]
+                comm["restrictions"]["users"] + [u.id for u in restrict_user]
             ))
             self.backend.save(comm)
             display_users = [self.bot.get_user(u).display_name for u in comm["restrictions"]["users"]]
             await ctx.send(
                 embed=mkembed('done', 'User restriction updated:', command=comm['command'], users=display_users)
             )
-        if ctx.message.channel_mentions:
+        if kwargs['restrict_channel']:
             if not comm.get("restrictions"):
                 comm["restrictions"] = {}
             if not comm["restrictions"].get("channels"):

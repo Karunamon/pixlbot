@@ -15,3 +15,7 @@ RandomNowPlaying:
     - Megaman Battle Network
 #sentry:
 #  init_url:
+TwitchNotifier:
+  id: id goes here
+  secret: secret goes here
+  myurl: https://url.to.this.server:8080
