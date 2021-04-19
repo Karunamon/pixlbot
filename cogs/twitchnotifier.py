@@ -52,8 +52,7 @@ class TwitchNotifier(commands.Cog):
         self.uuids = []
         self.online_uuids = []
         self.sslcontext = ssl.SSLContext()
-        self.sslcontext.load_cert_chain("C:\\Certbot\\live\\skaianet.tkware.us\\fullchain.pem",
-                                        "C:\\Certbot\\live\\skaianet.tkware.us\\privkey.pem")
+        self.sslcontext.load_cert_chain(self.config['cert_path'], self.config['key_path'])
         self._twitch_init_()
 
     def _twitch_init_(self):
@@ -80,8 +79,6 @@ class TwitchNotifier(commands.Cog):
             return None
         else:
             return res['data'][0]['id']
-
-    schema = {'twitch_name': '', 'twitch_id': '', 'discord_name': '', 'notify_channel': '', 'message_template': ''}
 
     def _register_all(self):
         """Attempts to register stream_changed callbacks for all configured users."""

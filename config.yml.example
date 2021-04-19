@@ -18,4 +18,7 @@ RandomNowPlaying:
 TwitchNotifier:
   id: id goes here
   secret: secret goes here
+  port: 8080
   myurl: https://url.to.this.server:8080
+  cert_path: /home/pixl/fullchain.pem
+  key_path: /home/pixl/fullchain.key
