@@ -102,9 +102,10 @@ class TwitchNotifier(commands.Cog):
         if data["type"] == "offline":
             if uuid in self.online_uuids:
                 self.online_uuids.remove(uuid)  # Stupid twitch sending the same damn webhook multiple times...
+                return
             else:
                 self.bot.logger.debug(f"Ignoring duplicate offline callback for {uuid}")
-            return
+                return
         elif data["type"] == "live":
             if uuid in self.online_uuids:
                 self.bot.logger.debug(f"Ignoring duplicate live callback for {uuid}")
@@ -156,7 +157,7 @@ class TwitchNotifier(commands.Cog):
                                notify_text: str):
         twitch_id = self._login_to_id(twitch_name)
         try:
-            item = self.backend.get(TwitchWatchedUser, {'twitch_name': twitch_name})
+            self.backend.get(TwitchWatchedUser, {'twitch_name': twitch_name})
         except TwitchWatchedUser.DoesNotExist:
             pass
         except TwitchWatchedUser.MultipleDocumentsReturned:
@@ -193,8 +194,11 @@ class TwitchNotifier(commands.Cog):
             await ctx.send(embed=mkembed("error", f"No notification exists for {twitch_name}"))
             return
         self.hook.unsubscribe(item['uuid'])
+        self.bot.logger.info(f"Removing watch {item['uuid']}: {twitch_name}")
         self.backend.delete(item)
-        await ctx.send(embed=mkembed("done", f"{twitch_name} notification removed."))
+        if item['uuid'] in self.uuids:
+            self.uuids.remove(item['uuid'])
+        await ctx.send(embed=mkembed("done", f"Notification for {twitch_name} removed."))
 
 
 def setup(bot):
