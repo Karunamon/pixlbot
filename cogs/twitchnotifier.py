@@ -52,7 +52,7 @@ class TwitchNotifier(commands.Cog):
         self.uuids = []
         self.online_uuids = []
         self.sslcontext = ssl.SSLContext()
-        self.sslcontext.load_cert_chain(self.config['cert_path'], self.config['key_path'])
+#        self.sslcontext.load_cert_chain(self.config['cert_path'], self.config['key_path'])
         self._twitch_init_()
 
     def _twitch_init_(self):
