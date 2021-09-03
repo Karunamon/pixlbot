@@ -61,7 +61,7 @@ class TwitchNotifier(commands.Cog):
         self.twitch.authenticate_app([])
         self.bot.logger.info(f"Registering webhook endpoint {self.config['myurl']} ...")
         self.hook = TwitchWebHook(self.config['myurl'], self.config['id'],
-                                  self.config['port'], ssl_context=self.sslcontext)
+                                  self.config['port'])
         self.hook.authenticate(self.twitch)
         self.bot.logger.info("Clearing all hook subscriptions...")
         self.hook.unsubscribe_all(self.twitch)  # Clear all subs on startup
