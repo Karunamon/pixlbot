@@ -1,40 +1,19 @@
 from typing import Union
 
 import discord
-import discord.ext.commands.context as context
 from blitzdb import Document, FileBackend
+from discord.commands import Option, SlashCommandGroup
 from discord.ext import commands
-from discord_slash import cog_ext, SlashContext
-from discord_slash.utils.manage_commands import create_option
 
 import util
 from util import mkembed
 
-respond_to = create_option(
-    name="respond_to",
-    option_type=3,
-    description="Text to respond to",
-    required=True
-)
-response = create_option(
-    name="response",
-    option_type=3,
-    description="Text to reply with",
-    required=True
-)
-
-restrict_user = create_option(
-    name="restricted_user",
-    option_type=6,
-    description="The user(s) that the response applies to",
-    required=False
-)
-restrict_channel = create_option(
-    name="restricted_channel",
-    option_type=7,
-    description="The channel(s) that the response applies to",
-    required=False
-)
+autoresponder = SlashCommandGroup("autoresponder", "Set automatic replies to certain text")
+respond_to = Option(str, name="respond_to", description="Text to respond to")
+response = Option(str, name="response", description="Text to reply with")
+restrict_user = Option(discord.Member, name="restricted_user", description="The user(s) that the response applies to")
+restrict_channel = Option(discord.TextChannel, name="restricted_channel",
+                          description="The channel(s) that the response applies to")
 
 
 class ResponseCommand(Document):
@@ -46,7 +25,7 @@ class Responder(commands.Cog):
         self.bot = bot
         self.backend = FileBackend('db')
         self.backend.autocommit = True
-        bot.logger.info("Responder plugin ready")
+        bot.logger.info("ready")
 
     def _find_one(self, name: str) -> Union[ResponseCommand, None]:
         """Searches for a response in the DB, returning it if found, or None if it doesn't exist or there are multiples.
@@ -86,10 +65,9 @@ class Responder(commands.Cog):
             else:
                 return True
 
-    @cog_ext.cog_subcommand(base="Autoresponder", name="addresponse",
-                            description="Adds an automatic response to certain text",
-                            options=[respond_to, response], guild_ids=util.guilds)
-    async def addresponse(self, ctx: SlashContext, respond_to: str, response: str):
+    @autoresponder.command(description="Adds an automatic response to certain text",
+                           options=[respond_to, response], guild_ids=util.guilds)
+    async def addresponse(self, ctx: discord.ApplicationContext, respond_to: str, response: str):
         """Adds an automatic response to (name) as (response)
         The first word (name) is the text that will be replied to. Everything else is what it will be replied to with.
         If you want to reply to an entire phrase, enclose name in quotes."""
@@ -102,14 +80,13 @@ class Responder(commands.Cog):
             )
             self.backend.save(comm)
             self.bot.logger.info(f"'{response}' was added by {ctx.author.display_name}")
-            await ctx.send(embed=mkembed('done', "Autoresponse saved.", reply_to=respond_to, reply_with=response))
+            await ctx.send(embed=mkembed('done', "Autoresponse saved.", reply_to=respond_to))
 
-    @cog_ext.cog_subcommand(base="Autoresponder", name="delresponse",
-                            description="Removes an automatic reponse from certain text",
-                            options=[respond_to], guild_ids=util.guilds)
-    async def delresponse(self, ctx: SlashContext, respond_to: str):
-        """Removes an autoresponse.
-        Only the initial creator of a response can remove it."""
+    @autoresponder.command(name="delresponse",
+                           description="Removes an automatic reponse from certain text",
+                           options=[respond_to], guild_ids=util.guilds)
+    async def delresponse(self, ctx: discord.ApplicationContext, respond_to: str):
+        """Removes an autoresponse. Only the initial creator of a response can remove it."""
         comm = self._find_one(respond_to)
         if not comm:
             await ctx.send(embed=mkembed('error', f"{respond_to} is not defined."))
@@ -123,11 +100,11 @@ class Responder(commands.Cog):
             await ctx.send(embed=mkembed('info', f"{respond_to} has been removed."))
 
     # @commands.command()
-    # @cog_ext.cog_subcommand(base="Autoresponder", name="limit_user",
-    #                         description="Limit a response to triggering on a certain user. Leave users blank to remove.",
-    #                         options=[respond_to, restrict_user],
-    #                         guild_ids=util.guilds)
-    async def limitchannel(self, ctx: SlashContext, respond_to: str, **kwargs):
+    @autoresponder.command(base="Autoresponder", name="limit_user",
+                           description="Limit a response to triggering on a certain user. Leave users blank to remove.",
+                           options=[respond_to, restrict_user],
+                           guild_ids=util.guilds)
+    async def limitchannel(self, ctx: discord.ApplicationContext, respond_to: str, **kwargs):
         comm = self._find_one(respond_to)
         if not comm:
             await ctx.send(embed=mkembed('error', f"'{respond_to}' does not exist."))
@@ -147,7 +124,7 @@ class Responder(commands.Cog):
             elif not comm["restrictions"].get("users"):
                 comm["restrictions"]["users"] = []
             comm["restrictions"]["users"] = list(set(
-                comm["restrictions"]["users"] + [u.id for u in restrict_user]
+                comm["restrictions"]["users"] + [u.id for u in kwargs['restrict_user']]
             ))
             self.backend.save(comm)
             display_users = [self.bot.get_user(u).display_name for u in comm["restrictions"]["users"]]
@@ -160,7 +137,7 @@ class Responder(commands.Cog):
             if not comm["restrictions"].get("channels"):
                 comm["restrictions"]["channels"] = []
             comm["restrictions"]["channels"] = list(set(
-                comm["restrictions"]["channels"] + [c.id for c in ctx.message.channel_mentions]
+                comm["restrictions"]["channels"] + ctx.message.channel_mentions
             ))
             display_channels = [self.bot.get_channel(c).name for c in comm["restrictions"]["channels"]]
             self.backend.save(comm)
@@ -171,8 +148,8 @@ class Responder(commands.Cog):
                               )
             )
 
-    @commands.command()
-    async def responserestrictions(self, ctx: context, name: str):
+    @autoresponder.command(name="getrestrictions", guild_ids=util.guilds)
+    async def responserestrictions(self, ctx: discord.ApplicationContext, name: str):
         """Show the restriction list for a given command"""
         comm = self._find_one(name)
         if not comm:

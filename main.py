@@ -1,28 +1,38 @@
 # -*- coding: UTF-8 -*-
 import atexit
+import logging
 import sys
 import traceback
+from abc import ABC
 
+import discord
 import yaml
 from discord.ext.commands.bot import Bot
-from discord_slash import SlashCommand
 
-import util
 from util import log
 from util import update_guilds
 
+logging.basicConfig(level=logging.DEBUG)
 
-class PixlBot(Bot):
+
+# noinspection PyDunderSlots
+class PixlBot(Bot, ABC):
     config = None
     ready = False
     sentry = None
     logger = None
 
+    # noinspection PyUnresolvedReferences
     def __init__(self, bot_config: dict = None):
-        super().__init__(bot_config['system']['command_prefix'])
+        i = discord.Intents()
+        i.guilds = True
+        i.members = True
+        i.messages = True
+        super().__init__(bot_config['system']['command_prefix'], intents=i)
         self.config = bot_config
         self.logger = log.init_logger('bot', bot_config['system']['log_level'])
         self.logger.info("Ohai! Initializing..")
+        self.atshutdown = []
 
         # Sentry.io integration
         if 'sentry' in self.config.keys():
@@ -44,17 +54,23 @@ class PixlBot(Bot):
                 self.sentry.capture_exception(sys.exc_info())
 
     async def on_connect(self):
+        # await super().on_connect()
         self.logger.info("Connected to Discord")
         update_guilds(self.guilds)
         self.logger.info("Loading cogs..")
         for ext in self.config['system']['plugins']:
-            self.logger.info(f"Attempting to load {ext}")
-            self.load_extension(ext)
+            try:
+                self.logger.info(f"Attempting to load {ext}")
+                self.load_extension(ext)
+            except Exception as e:
+                self.logger.error(e)
+                continue
+        await self.sync_commands()
 
     async def on_ready(self):
         self.logger.info("Ready!")
-        self.logger.info(util.guilds)
-        self.logger.info(slash.subcommands)
+        # self.logger.info(util.guilds)
+        self.logger.info(self.commands)
 
     async def on_join_guild(self, guild):
         self.logger.info(f"Invited to a guild: {guild}")
@@ -64,17 +80,20 @@ class PixlBot(Bot):
         self.logger.info(f"Removed from a guild: {guild}")
         update_guilds(self.guilds)
 
-    async def on_disconnect(self):
-        self.logger.warning("Disconnected!")
+    # Seems to randomly trigger despite not actually being disconnected.
+    # async def on_disconnect(self):
+    #     self.logger.warning("Disconnected!")
 
     def shutdown(self):
         self.logger.warning("Shutting down")
+        for f in self.atshutdown:
+            self.logger.debug("Executing shutdown triggers: ")
+            f()
 
 
 with open('config.yml', 'r') as file:
     conf = yaml.safe_load(file)
 
 bot = PixlBot(bot_config=conf)
-slash = SlashCommand(bot, override_type=True, sync_commands=True, sync_on_cog_reload=True)
 atexit.register(bot.shutdown)
 bot.run(conf['system']['bot_token'])

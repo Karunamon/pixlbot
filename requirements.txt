@@ -1,6 +1,0 @@
-discord.py~=1.7.1
-sentry-sdk
-blitzdb
-pyyaml~=5.4.1
-twitchAPI~=2.3.2
-discord-py-slash-command

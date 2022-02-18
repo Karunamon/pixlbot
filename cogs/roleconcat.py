@@ -1,8 +1,10 @@
 import discord
+from discord.commands import SlashCommandGroup
 from discord.ext import commands
-from discord_slash import cog_ext, SlashContext
 
 from util import guilds
+
+roleconcat = SlashCommandGroup(name="roleconcat", description="Takes all the people here and puts them over there")
 
 
 class RoleConcat(commands.Cog):
@@ -11,11 +13,10 @@ class RoleConcat(commands.Cog):
         self.config = bot.config['RoleConcat']
         self.bot.logger.info("ready")
 
-    @cog_ext.cog_subcommand(base="roleconcat", name="reconcile", description="Re-evaluate all roleconcat rules",
-                            guild_ids=guilds)
-    async def rereconcile(self, ctx: SlashContext):
+    @roleconcat.command(name="reconcile", description="Re-evaluate all roleconcat rules", guild_ids=guilds)
+    async def rereconcile(self, ctx: discord.ApplicationContext):
         chgcount = await self.reconcile_roles(ctx.guild) or "no"
-        await ctx.send(f"Reconciled, made {chgcount} changes", hidden=True)
+        await ctx.send(f"Reconciled, made {chgcount} changes")
 
     async def reconcile_roles(self, server: discord.Guild) -> int:
         if server.id not in self.config['servers']:
