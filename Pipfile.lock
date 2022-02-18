@@ -280,7 +280,7 @@
         },
         "py-cord": {
             "git": "https://github.com/Pycord-Development/pycord",
-            "ref": "d615976bb7f6efa7d0097991d5ae4b00e88c0ac5"
+            "ref": "b7f96f1c41c0d17598f1b4da36a20a939d9b7c83"
         },
         "pyyaml": {
             "hashes": [
