@@ -13,6 +13,8 @@ dice_str = Option(str, name="dice_string", description="A dice string like 1d20 
 class DiceRoll(commands.Cog):
 
     def __init__(self, bot):
+        self.bot = bot
+        self.bot.add_application_command(dicegroup)
         pass
 
     @dicegroup.command(name="roll", description="Roll some dice", options=[dice_str], guild_ids=util.guilds)

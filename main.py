@@ -1,6 +1,5 @@
 # -*- coding: UTF-8 -*-
 import atexit
-import logging
 import sys
 import traceback
 from abc import ABC
@@ -11,8 +10,6 @@ from discord.ext.commands.bot import Bot
 
 from util import log
 from util import update_guilds
-
-logging.basicConfig(level=logging.DEBUG)
 
 
 # noinspection PyDunderSlots
@@ -54,9 +51,7 @@ class PixlBot(Bot, ABC):
                 self.sentry.capture_exception(sys.exc_info())
 
     async def on_connect(self):
-        # await super().on_connect()
         self.logger.info("Connected to Discord")
-        update_guilds(self.guilds)
         self.logger.info("Loading cogs..")
         for ext in self.config['system']['plugins']:
             try:
@@ -65,12 +60,11 @@ class PixlBot(Bot, ABC):
             except Exception as e:
                 self.logger.error(e)
                 continue
-        await self.sync_commands()
 
     async def on_ready(self):
         self.logger.info("Ready!")
-        # self.logger.info(util.guilds)
-        self.logger.info(self.commands)
+        self.logger.info(self.guilds)
+        await self.sync_commands()
 
     async def on_join_guild(self, guild):
         self.logger.info(f"Invited to a guild: {guild}")

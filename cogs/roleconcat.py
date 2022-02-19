@@ -2,9 +2,9 @@ import discord
 from discord.commands import SlashCommandGroup
 from discord.ext import commands
 
-from util import guilds
 
-roleconcat = SlashCommandGroup(name="roleconcat", description="Takes all the people here and puts them over there")
+roleconcat = SlashCommandGroup(name="roleconcat", description="Takes all the people here and puts them over there",
+                               guild_ids=[709655247357739048])
 
 
 class RoleConcat(commands.Cog):
@@ -12,8 +12,9 @@ class RoleConcat(commands.Cog):
         self.bot = bot
         self.config = bot.config['RoleConcat']
         self.bot.logger.info("ready")
+        self.bot.add_application_command(roleconcat)
 
-    @roleconcat.command(name="reconcile", description="Re-evaluate all roleconcat rules", guild_ids=guilds)
+    @roleconcat.command(name="reconcile_roles", description="Re-evaluate all roleconcat rules")
     async def rereconcile(self, ctx: discord.ApplicationContext):
         chgcount = await self.reconcile_roles(ctx.guild) or "no"
         await ctx.send(f"Reconciled, made {chgcount} changes")

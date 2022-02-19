@@ -21,9 +21,9 @@ class Bonk(commands.Cog):
             user = self.backend.get(BonkCount, {'uid': uid})
         except BonkCount.DoesNotExist:
             return BonkCount({'uid': uid})
-        except BonkCount.MultipleDocumentsReturned:
+        except BonkCount.MultipleDocumentsReturned as e:
             self.bot.logger.error(f"_find_or_make discarding multiple results returned for '{uid}'")
-            return None
+            raise e
         else:
             return user
 
