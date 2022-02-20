@@ -30,6 +30,7 @@ class PixlBot(Bot, ABC):
         self.logger = log.init_logger('bot', bot_config['system']['log_level'])
         self.logger.info("Ohai! Initializing..")
         self.atshutdown = []
+        update_guilds(bot_config['system']['guilds'])
 
         # Sentry.io integration
         if 'sentry' in self.config.keys():

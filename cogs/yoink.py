@@ -6,33 +6,33 @@ import requests
 from discord.ext import commands
 
 
-def _get_emojis(msg: discord.Message) -> List[dict]:
-    content = msg.content
-    res = re.findall(r'<a?:(?P<name>\w+):(?P<snowflake>\d+)>', content)
-    if not res:
-        return []
-    outputs = []
-    for r in res:
-        outputs.append(
-            {
-                'name': r[0],
-                'id': r[1],
-                'url': f"https://cdn.discordapp.com/emojis/{r[1]}.png",
-                'aurl': f"https://cdn.discordapp.com/emojis/{r[1]}.gif",
+class Yoink(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+        bot.logger.info("yo ho fiddle dee dee!")
+
+    def _get_emojis(self, msg: discord.Message) -> List[dict]:
+        content = msg.content
+        res = re.finditer(r'<(?P<animated>a)?:(?P<name>\w+):(?P<snowflake>\d+)>', content)
+        if not res:
+            return []
+        outputs = []
+        for r in res:
+            rd = r.groupdict()
+            ext = 'gif' if rd.get('animated') else 'png'
+            emo = {
+                'name': rd['name'],
+                'id': rd['snowflake'],
+                'url': f"https://cdn.discordapp.com/emojis/{rd['snowflake']}.{ext}",
                 'data': None,
-                'animated': None
+                'animated': rd.get('animated')
             }
-        )
-    return outputs
+            self.bot.logger.debug(emo)
+            outputs.append(emo)
+        return outputs
 
-
-def _download_emoji(e: dict) -> Optional[dict]:
-    r = requests.get(e['aurl'])
-    if r.ok:
-        e['data'] = r.content
-        e['animated'] = True
-        return e
-    else:
+    def _download_emoji(self, e: dict) -> Optional[dict]:
+        self.bot.logger.debug(f"Downloading emoji from {e['url']}")
         r = requests.get(e['url'])
         if r.ok:
             e['data'] = r.content
@@ -40,20 +40,14 @@ def _download_emoji(e: dict) -> Optional[dict]:
         else:
             return None
 
-
-class Yoink(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
-        bot.logger.info("yo ho fiddle dee dee!")
-
     @commands.message_command(name="Yoink emojis", guild_ids=[709655247357739048])
-    async def bonk(self, ctx: discord.ApplicationContext, message: discord.Message):
-        await ctx.defer()
-        emos = _get_emojis(message)
+    async def yoink(self, ctx: discord.ApplicationContext, message: discord.Message):
+        await ctx.defer(ephemeral=True)
+        emos = self._get_emojis(message)
         if not emos:
-            await ctx.respond("Nothing to do here :(", ephemeral=True)
+            await ctx.respond("Nothing to do here :(")
             return
-        emos = [_download_emoji(e) for e in emos]
+        emos = [self._download_emoji(e) for e in emos]
         emos = [e for e in emos if e]  # strip nones
         newemos = []
         length = len(emos)
@@ -68,7 +62,7 @@ class Yoink(commands.Cog):
             ymsg += f"<{'a' if e.animated else ''}:{e.name}:{e.id}> "
 
         await message.reply(f"Yoink! {ymsg}")
-        await ctx.respond(f"{length} new emojis yoinked", ephemeral=True)
+        await ctx.respond(content=f"{length} new emoji{'s' if length > 1 else ''} yoinked")
 
 
 def setup(bot):
