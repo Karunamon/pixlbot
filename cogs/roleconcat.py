@@ -1,23 +1,29 @@
+from typing import TYPE_CHECKING
+
 import discord
 from discord.commands import SlashCommandGroup
 from discord.ext import commands
 
+import util
 
-roleconcat = SlashCommandGroup(name="roleconcat", description="Takes all the people here and puts them over there",
-                               guild_ids=[709655247357739048])
+if TYPE_CHECKING:
+    from main import PixlBot
 
 
 class RoleConcat(commands.Cog):
+    roleconcat = SlashCommandGroup(name="roleconcat", description="Takes all the people here and puts them over there",
+                                   guild_ids=util.guilds)
+
     def __init__(self, bot):
-        self.bot = bot
+        self.bot: PixlBot = bot
         self.config = bot.config['RoleConcat']
         self.bot.logger.info("ready")
-        self.bot.add_application_command(roleconcat)
 
-    @roleconcat.command(name="reconcile_roles", description="Re-evaluate all roleconcat rules")
+    @roleconcat.command(name="reconcile_roles", description="Re-evaluate all roleconcat rules", guild_ids=util.guilds)
     async def rereconcile(self, ctx: discord.ApplicationContext):
+        await ctx.defer(ephemeral=True)
         chgcount = await self.reconcile_roles(ctx.guild) or "no"
-        await ctx.send(f"Reconciled, made {chgcount} changes")
+        await ctx.send(f"Reconciled, made {chgcount} change{'s' if chgcount > 1 else ''}")
 
     async def reconcile_roles(self, server: discord.Guild) -> int:
         if server.id not in self.config['servers']:
