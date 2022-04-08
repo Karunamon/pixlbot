@@ -9,7 +9,7 @@ def mkembed(kind: str, description: str, **kwargs) -> discord.Embed:
     if kind not in kindmap:
         raise ValueError(f"kind must be one of {kindmap}")
     e = discord.Embed(
-        title=kind.capitalize(),
+        title=kwargs.get('title', None) or kind.capitalize(),
         description=description,
         color=kindmap[kind]
     )
@@ -20,4 +20,4 @@ def mkembed(kind: str, description: str, **kwargs) -> discord.Embed:
 
 def update_guilds(guildlist: list):
     global guilds
-    guilds = [x.id for x in guildlist]
+    guilds = guildlist

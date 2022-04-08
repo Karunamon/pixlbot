@@ -25,6 +25,8 @@ class PixlBot(Bot, ABC):
         i.guilds = True
         i.members = True
         i.messages = True
+        i.message_content = True
+        self.loaded = False
         super().__init__(bot_config['system']['command_prefix'], intents=i)
         self.config = bot_config
         self.logger = log.init_logger('bot', bot_config['system']['log_level'])
@@ -53,14 +55,17 @@ class PixlBot(Bot, ABC):
 
     async def on_connect(self):
         self.logger.info("Connected to Discord")
-        self.logger.info("Loading cogs..")
-        for ext in self.config['system']['plugins']:
-            try:
-                self.logger.info(f"Attempting to load {ext}")
-                self.load_extension(ext)
-            except Exception as e:
-                self.logger.error(e)
-                continue
+        if not self.loaded:
+            self.logger.info("Loading cogs..")
+            for ext in self.config['system']['plugins']:
+                try:
+                    self.logger.info(f"Attempting to load {ext}")
+                    self.load_extension(ext)
+                except Exception as e:
+                    self.logger.error(e)
+                    self.logger.error(f"Skipping {ext}")
+                    continue
+            self.loaded = True
 
     async def on_ready(self):
         self.logger.info("Ready!")

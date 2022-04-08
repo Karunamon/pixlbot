@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Optional
 
 import discord
 from blitzdb import Document, FileBackend
@@ -8,7 +8,6 @@ from discord.ext import commands
 import util
 from util import mkembed
 
-autoresponder = SlashCommandGroup("autoresponder", "Set automatic replies to certain text")
 respond_to = Option(str, name="respond_to", description="Text to respond to")
 response = Option(str, name="response", description="Text to reply with")
 restrict_user = Option(discord.Member, name="restricted_user", description="The user(s) that the response applies to")
@@ -21,13 +20,15 @@ class ResponseCommand(Document):
 
 
 class Responder(commands.Cog):
+    autoresponder = SlashCommandGroup("autoresponder", "Set automatic replies to certain text", guild_ids=util.guilds)
+
     def __init__(self, bot):
         self.bot = bot
         self.backend = FileBackend('db')
         self.backend.autocommit = True
         bot.logger.info("ready")
 
-    def _find_one(self, name: str) -> Union[ResponseCommand, None]:
+    def _find_one(self, name: str) -> Optional[ResponseCommand]:
         """Searches for a response in the DB, returning it if found, or None if it doesn't exist or there are multiples.
         This exists to tie up the Blitzdb boilerplate in one place."""
         try:
