@@ -5,6 +5,8 @@ system:
   plugins:
     - cogs.responder
     - cogs.randomplaying
+    - cogs.yoink
+    - cogs.ftime
 RandomNowPlaying:
   intervalmin: 60
   intervalmax: 900
@@ -15,10 +17,3 @@ RandomNowPlaying:
     - Megaman Battle Network
 #sentry:
 #  init_url:
-TwitchNotifier:
-  id: id goes here
-  secret: secret goes here
-  port: 8080
-  myurl: https://url.to.this.server:8080
-  cert_path: /home/pixl/fullchain.pem
-  key_path: /home/pixl/fullchain.key
