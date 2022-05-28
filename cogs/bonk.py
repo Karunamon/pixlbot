@@ -14,6 +14,7 @@ class Bonk(commands.Cog):
         self.bot = bot
         self.backend = FileBackend('db')
         self.backend.autocommit = True
+        self.config = bot.config['Bonk']
         bot.logger.info("horny jail ready!")
 
     def _find_or_make(self, uid: int) -> BonkCount:
@@ -40,8 +41,8 @@ class Bonk(commands.Cog):
     @commands.message_command(name="Bonk this message", guild_ids=util.guilds)
     async def bonk(self, ctx: discord.ApplicationContext, message: discord.Message):
         await ctx.defer(ephemeral=True)
-        horny_channel: discord.TextChannel = self.bot.get_channel(778310784450691142)  # nsfw-chat
-        bonk_sticker: discord.Sticker = self.bot.get_sticker(943515690235752459)
+        horny_channel: discord.TextChannel = self.bot.get_channel(self.config['channel'])  # nsfw-chat
+        bonk_sticker: discord.Sticker = self.bot.get_sticker(self.config['sticker'])
         await message.reply(content=message.author.mention, stickers=[bonk_sticker])
         await horny_channel.send(f"{message.author.mention} (from {message.channel.mention}): {message.content}")
         e = util.mkembed('info',

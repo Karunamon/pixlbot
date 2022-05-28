@@ -7,6 +7,10 @@ system:
     - cogs.randomplaying
     - cogs.yoink
     - cogs.ftime
+    - cogs.roller
+    #- cogs.roleconcat
+    #- cogs.bonk
+
 RandomNowPlaying:
   intervalmin: 60
   intervalmax: 900
@@ -15,5 +19,9 @@ RandomNowPlaying:
     - Death Stranding
     - Outer Wilds
     - Megaman Battle Network
+
+Bonk:
+  channel: 178310784450691142
+  sticker: 143515690235752459
 #sentry:
 #  init_url:
