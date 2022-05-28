@@ -2,7 +2,8 @@
 .vscode
 .idea
 responder-db
-log
 config.yml
 notes.md
-db
+db/
+__pycache__
+.DS_Store
