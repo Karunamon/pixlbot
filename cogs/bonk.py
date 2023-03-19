@@ -38,9 +38,18 @@ class Bonk(commands.Cog):
         else:
             return await ctx.channel.fetch_message(msg_id)
 
+    @staticmethod
+    async def has_top_role(member: discord.Member, top: int = 3) -> bool:
+        top_roles = sorted(member.guild.roles, key=lambda r: r.position, reverse=True)[:top]
+        return any(role in member.roles for role in top_roles)
+
     @commands.message_command(name="Bonk this message", guild_ids=util.guilds)
     async def bonk(self, ctx: discord.ApplicationContext, message: discord.Message):
         await ctx.defer(ephemeral=True)
+        if not await self.has_top_role(ctx.author):
+            await ctx.respond("You must have one of the top roles in the server to use this command.",
+                              ephemeral=True)
+            return
         horny_channel: discord.TextChannel = self.bot.get_channel(self.config['channel'])  # nsfw-chat
         bonk_sticker: discord.Sticker = self.bot.get_sticker(self.config['sticker'])
         await message.reply(content=message.author.mention, stickers=[bonk_sticker])
