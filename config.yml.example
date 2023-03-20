@@ -23,5 +23,9 @@ RandomNowPlaying:
 Bonk:
   channel: 178310784450691142
   sticker: 143515690235752459
+
+ChatGPT:
+  api_key: 0
+
 #sentry:
 #  init_url:
