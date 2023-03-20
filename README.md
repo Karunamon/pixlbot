@@ -1,4 +1,5 @@
 # Pixlbot
+![GitHub Pipenv locked dependency version (branch)](https://img.shields.io/github/pipenv/locked/dependency-version/karunamon/pixlbot/py-cord/master?style=for-the-badge) ![GitHub Pipenv locked Python version (branch)](https://img.shields.io/github/pipenv/locked/python-version/karunamon/pixlbot/release?style=for-the-badge) ![Discord](https://img.shields.io/discord/709655247357739048?logo=discord&style=for-the-badge) ![License](https://img.shields.io/github/license/karunamon/pixlbot?style=for-the-badge)
 
 Pixl is a Discord utility bot and bot 'framework' based on [Pycord](https://pycord.dev/). By itself, it does nothing interesting. It acts as a host for various cogs (plug-ins) that do useful things.
 
