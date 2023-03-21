@@ -57,3 +57,18 @@ This also results in the author getting mentioned like three or four times which
 ##### Setup
 
 Grab the ID of the channel bonked messages should go to. You should also upload a sticker which will be used as a reply to the bonked message, and grab its ID as well. Fill these numeric IDs in `config.yml` and uncomment `- cogs.bonk`
+
+### ChatGPT
+The ChatGPT cog allows users to interact with OpenAI's GPT model via Discord. The main features of this cog include:
+
+- Sending user messages to the GPT model and posting AI-generated responses (Only when the bot is @mentioned).
+- Resetting, showing, and saving a user's conversation history with the bot.
+
+##### Setup
+
+You will require a paid account with openai. Using the GPT 3.5 turbo model is extremely, extremely cheap but it is not free.
+
+Generate an API key and add it to the config.yml file. 
+
+You may also customize the "system" prompt, this is a blurb that the AI sees before every conversation, it can be used to provide instructions or set the general flavor of the conversation.
+

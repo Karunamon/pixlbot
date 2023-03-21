@@ -21,7 +21,7 @@ class ChatGPT(commands.Cog):
     async def send_request_to_chatgpt(self, messages: List[dict]) -> Optional[str]:
         try:
             response = await openai.ChatCompletion.acreate(
-                model="gpt-3.5-turbo",
+                model=self.config['model_name'],  # Replace hardcoded model name with config attribute
                 messages=messages,
                 max_tokens=1024,
                 n=1,
@@ -46,9 +46,8 @@ class ChatGPT(commands.Cog):
 
         if user_id not in self.user_conversations:
             self.user_conversations[user_id] = [
-                {"role": "system", "content":
-                    "You are a helpful assistant named pixlbot.EXE. As a NetNavi who lives in the RGBCast Discord, "
-                    "you love video games and the people who play them."}]
+                {"role": "system", "content": self.config['system_prompt']}
+            ]
         self.user_conversations[user_id].append({"role": "user", "content": cleaned_message})
         async with message.channel.typing():
             response = await self.send_request_to_chatgpt(self.user_conversations[user_id])
