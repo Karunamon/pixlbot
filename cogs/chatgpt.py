@@ -1,3 +1,6 @@
+import os
+import tempfile
+
 import openai
 from typing import List, Optional, Dict
 
@@ -37,6 +40,21 @@ class ChatGPT(commands.Cog):
         mention = self.bot.user.mention
         return message.replace(mention, "").strip()
 
+    def format_conversation(self, author_display_name: str, conversation: List[dict]) -> str:
+        formatted_conversation = ""
+        bot_display_name = self.bot.user.display_name
+
+        for msg in conversation:
+            role = msg["role"]
+            content = msg["content"]
+
+            if role == "user":
+                formatted_conversation += f"{author_display_name}: {content}\n"
+            elif role == "assistant":
+                formatted_conversation += f"{bot_display_name}: {content}\n"
+
+        return formatted_conversation
+
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if message.author.bot or not self.bot.user.mentioned_in(message):
@@ -66,6 +84,49 @@ class ChatGPT(commands.Cog):
             await ctx.respond("Your conversation history has been reset.", ephemeral=True)
         else:
             await ctx.respond("You have no conversation history to reset.", ephemeral=True)
+
+    @gpt.command(name="show_conversation", description="Show your current conversation with ChatGPT", guild_ids=util.guilds)
+    async def show_conversation(self, ctx):
+        user_id = ctx.author.id
+        if user_id not in self.user_conversations:
+            await ctx.respond("You have no conversation history to show.", ephemeral=True)
+            return
+
+        conversation = self.user_conversations[user_id]
+        formatted_conversation = self.format_conversation(ctx.author.display_name, conversation)
+        bot_display_name = self.bot.user.display_name
+
+        try:
+            await ctx.author.send(f"Here is your conversation with {bot_display_name}:\n\n{formatted_conversation}")
+            await ctx.respond("I've sent you a private message with your conversation history.", ephemeral=True)
+        except discord.Forbidden:
+            await ctx.respond("I couldn't send you a private message. Please make sure you allow direct messages from "
+                              "server members.", ephemeral=True)
+
+    @gpt.command(name="save_conversation", description="Save your current conversation with ChatGPT to a text file", guild_ids=util.guilds)
+    async def save_conversation(self, ctx):
+        user_id = ctx.author.id
+        if user_id not in self.user_conversations:
+            await ctx.respond("You have no conversation history to save.", ephemeral=True)
+            return
+
+        conversation = self.user_conversations[user_id]
+        formatted_conversation = self.format_conversation(ctx.author.display_name, conversation)
+        bot_display_name = self.bot.user.display_name
+
+        try:
+            with tempfile.NamedTemporaryFile(mode="w+", delete=False) as temp_file:
+                temp_file.write(formatted_conversation)
+                temp_file_path = temp_file.name
+
+                discord_file = discord.File(temp_file, filename="conversation.txt")
+                await ctx.author.send(f"Here is your conversation with {bot_display_name}:", file=discord_file)
+
+            os.remove(temp_file_path)
+            await ctx.respond("I've sent you a private message with your conversation history as a text file.", ephemeral=True)
+        except discord.Forbidden:
+            await ctx.respond("I couldn't send you a private message. Please make sure you allow direct messages from "
+                              "server members.", ephemeral=True)
 
 
 def setup(bot):
