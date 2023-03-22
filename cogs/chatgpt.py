@@ -57,14 +57,21 @@ class ChatGPT(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if message.author.bot or not self.bot.user.mentioned_in(message):
+        if message.author.bot:
             return
-        cleaned_message = self.remove_bot_mention(message.content)
+
+        is_private_message = isinstance(message.channel, discord.DMChannel)
+
+        if not is_private_message and not self.bot.user.mentioned_in(message):
+            return
+
+        cleaned_message = self.remove_bot_mention(message.content) if not is_private_message else message.content
         user_id = message.author.id
+        prompt_suffix = f"The user's name is {message.author.display_name} and it should be used wherever possible."
 
         if user_id not in self.user_conversations:
             self.user_conversations[user_id] = [
-                {"role": "system", "content": self.config['system_prompt']}
+                {"role": "system", "content": self.config['system_prompt'] + prompt_suffix}
             ]
         self.user_conversations[user_id].append({"role": "user", "content": cleaned_message})
         async with message.channel.typing():
@@ -73,8 +80,10 @@ class ChatGPT(commands.Cog):
                 self.user_conversations[user_id].append({"role": "assistant", "content": response})
             else:
                 response = "Sorry, can't talk to OpenAI right now."
-
-            await message.reply(response)
+            if is_private_message:
+                await message.channel.send(response)
+            else:
+                await message.reply(response)
 
     @gpt.command(name="reset", description="Reset your conversation history with ChatGPT", guild_ids=util.guilds)
     async def reset(self, ctx):
@@ -85,7 +94,8 @@ class ChatGPT(commands.Cog):
         else:
             await ctx.respond("You have no conversation history to reset.", ephemeral=True)
 
-    @gpt.command(name="show_conversation", description="Show your current conversation with ChatGPT", guild_ids=util.guilds)
+    @gpt.command(name="show_conversation", description="Show your current conversation with ChatGPT",
+                 guild_ids=util.guilds)
     async def show_conversation(self, ctx):
         user_id = ctx.author.id
         if user_id not in self.user_conversations:
@@ -103,7 +113,8 @@ class ChatGPT(commands.Cog):
             await ctx.respond("I couldn't send you a private message. Please make sure you allow direct messages from "
                               "server members.", ephemeral=True)
 
-    @gpt.command(name="save_conversation", description="Save your current conversation with ChatGPT to a text file", guild_ids=util.guilds)
+    @gpt.command(name="save_conversation", description="Save your current conversation with ChatGPT to a text file",
+                 guild_ids=util.guilds)
     async def save_conversation(self, ctx):
         user_id = ctx.author.id
         if user_id not in self.user_conversations:
@@ -123,7 +134,8 @@ class ChatGPT(commands.Cog):
                 await ctx.author.send(f"Here is your conversation with {bot_display_name}:", file=discord_file)
 
             os.remove(temp_file_path)
-            await ctx.respond("I've sent you a private message with your conversation history as a text file.", ephemeral=True)
+            await ctx.respond("I've sent you a private message with your conversation history as a text file.",
+                              ephemeral=True)
         except discord.Forbidden:
             await ctx.respond("I couldn't send you a private message. Please make sure you allow direct messages from "
                               "server members.", ephemeral=True)
