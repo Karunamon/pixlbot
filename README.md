@@ -1,4 +1,5 @@
 # Pixlbot
+![GitHub Pipenv locked dependency version (branch)](https://img.shields.io/github/pipenv/locked/dependency-version/karunamon/pixlbot/py-cord/master?style=for-the-badge) ![GitHub Pipenv locked Python version (branch)](https://img.shields.io/github/pipenv/locked/python-version/karunamon/pixlbot/release?style=for-the-badge) ![Discord](https://img.shields.io/discord/709655247357739048?logo=discord&style=for-the-badge) ![License](https://img.shields.io/github/license/karunamon/pixlbot?style=for-the-badge)
 
 Pixl is a Discord utility bot and bot 'framework' based on [Pycord](https://pycord.dev/). By itself, it does nothing interesting. It acts as a host for various cogs (plug-ins) that do useful things.
 
@@ -56,3 +57,18 @@ This also results in the author getting mentioned like three or four times which
 ##### Setup
 
 Grab the ID of the channel bonked messages should go to. You should also upload a sticker which will be used as a reply to the bonked message, and grab its ID as well. Fill these numeric IDs in `config.yml` and uncomment `- cogs.bonk`
+
+### ChatGPT
+The ChatGPT cog allows users to interact with OpenAI's GPT model via Discord. The main features of this cog include:
+
+- Sending user messages to the GPT model and posting AI-generated responses (Only when the bot is @mentioned).
+- Resetting, showing, and saving a user's conversation history with the bot.
+
+##### Setup
+
+You will require a paid account with openai. Using the GPT 3.5 turbo model is extremely, extremely cheap but it is not free.
+
+Generate an API key and add it to the config.yml file. 
+
+You may also customize the "system" prompt, this is a blurb that the AI sees before every conversation, it can be used to provide instructions or set the general flavor of the conversation.
+

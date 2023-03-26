@@ -5,13 +5,17 @@ guilds = []
 
 def mkembed(kind: str, description: str, **kwargs) -> discord.Embed:
     """Creates a discordpy Embed with some sane defaults. "Kind" must be "done", "error", or "info"."""
-    kindmap = {'done': discord.Color.green(), 'error': discord.Color.red(), 'info': discord.Color.blue()}
+    kindmap = {
+        "done": discord.Color.green(),
+        "error": discord.Color.red(),
+        "info": discord.Color.blue(),
+    }
     if kind not in kindmap:
         raise ValueError(f"kind must be one of {kindmap}")
     e = discord.Embed(
-        title=kwargs.get('title', None) or kind.capitalize(),
+        title=kwargs.pop("title", None) or kind.capitalize(),
         description=description,
-        color=kindmap[kind]
+        color=kindmap[kind],
     )
     for k, v in kwargs.items():
         e.add_field(name=k, value=v)

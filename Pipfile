@@ -4,13 +4,16 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-py-cord = { git = "https://github.com/Pycord-Development/pycord", ref = "master" }
+py-cord = "~=2.4.0"
 sentry-sdk = "*"
 blitzdb = "~=0.4.4"
 PyYAML = "==6.0"
 requests = "*"
+openai = "*"
 
 [dev-packages]
+pytest = "*"
+black = "*"
 
 [requires]
 python_version = "3.8"
