@@ -27,19 +27,22 @@ class PixlBot(Bot, ABC):
         i.messages = True
         i.message_content = True
         self.loaded = False
-        super().__init__(bot_config['system']['command_prefix'], intents=i)
+        super().__init__(bot_config["system"]["command_prefix"], intents=i)
         self.config = bot_config
-        self.logger = log.init_logger('bot', bot_config['system']['log_level'])
+        self.logger = log.init_logger("bot", bot_config["system"]["log_level"])
         self.logger.info("Ohai! Initializing..")
         self.atshutdown = []
-        update_guilds(bot_config['system']['guilds'])
+        update_guilds(bot_config["system"]["guilds"])
 
         # Sentry.io integration
-        if 'sentry' in self.config.keys():
+        if "sentry" in self.config.keys():
             import sentry_sdk
+
             self.sentry = sentry_sdk
-            self.sentry.init(self.config['sentry']['init_url'], environment="production")
-            self.logger.warning('sentry.io integration enabled')
+            self.sentry.init(
+                self.config["sentry"]["init_url"], environment="production"
+            )
+            self.logger.warning("sentry.io integration enabled")
 
     async def on_error(self, event, *args, **kwargs):
         exc = sys.exc_info()
@@ -57,7 +60,7 @@ class PixlBot(Bot, ABC):
         self.logger.info("Connected to Discord")
         if not self.loaded:
             self.logger.info("Loading cogs..")
-            for ext in self.config['system']['plugins']:
+            for ext in self.config["system"]["plugins"]:
                 try:
                     self.logger.info(f"Attempting to load {ext}")
                     self.load_extension(ext)
@@ -91,9 +94,9 @@ class PixlBot(Bot, ABC):
             f()
 
 
-with open('config.yml', 'r') as file:
+with open("config.yml", "r") as file:
     conf = yaml.safe_load(file)
 
 bot = PixlBot(bot_config=conf)
 atexit.register(bot.shutdown)
-bot.run(conf['system']['bot_token'])
+bot.run(conf["system"]["bot_token"])

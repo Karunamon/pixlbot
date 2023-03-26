@@ -9,25 +9,29 @@ from discord.ext import commands
 class ImageGrabber(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.config = bot.config['ImageGrabber']
+        self.config = bot.config["ImageGrabber"]
         self.bot.logger.info("ImageGrabber plugin ready")
 
     def archive_send(self, url: str) -> bool:
-        result = requests.get('https://us-west2-rgbcast-nsfw.cloudfunctions.net/pixl-nsfwgrab',
-                              params={'target': url})
+        result = requests.get(
+            "https://us-west2-rgbcast-nsfw.cloudfunctions.net/pixl-nsfwgrab",
+            params={"target": url},
+        )
         if result.ok:
             self.bot.logger.debug(f"Archived {url}")
             return True
         else:
-            self.bot.logger.debug(f"Archive failed: {result.status_code} - {result.content}")
+            self.bot.logger.debug(
+                f"Archive failed: {result.status_code} - {result.content}"
+            )
             return False
 
     @staticmethod
     async def add_status_react(message: discord.Message, status: bool = True):
         if status:
-            await message.add_reaction('🆗')
+            await message.add_reaction("🆗")
         else:
-            await message.add_reaction('🆖')
+            await message.add_reaction("🆖")
 
     async def handle_message(self, message: discord.Message):
         await asyncio.sleep(3)  # Wait for serverside embeds to populate
@@ -43,10 +47,10 @@ class ImageGrabber(commands.Cog):
         else:
             urls = re.findall(
                 r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))",
-                message.content
+                message.content,
             )
             for u in urls:
-                if re.search(r'.+\.(png|gif|jpeg|jpg|bmp|mp4|m4v)$', message.content):
+                if re.search(r".+\.(png|gif|jpeg|jpg|bmp|mp4|m4v)$", message.content):
                     await self.add_status_react(message, self.archive_send(u))
 
     @commands.Cog.listener()
