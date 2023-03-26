@@ -1,18 +1,17 @@
 import os
 import tempfile
-
-import openai
 from typing import List, Optional, Dict
 
 import discord
-from discord.ext import commands
+import openai
 from discord.commands import SlashCommandGroup
+from discord.ext import commands
 
 import util
 
 
 class ChatGPT(commands.Cog):
-    gpt = SlashCommandGroup("chatgpt", "AI chatbot", guild_ids=util.guilds)
+    gpt = SlashCommandGroup("ai", "AI chatbot", guild_ids=util.guilds)
 
     def __init__(self, bot):
         self.bot = bot
@@ -24,7 +23,7 @@ class ChatGPT(commands.Cog):
     async def send_request_to_chatgpt(self, messages: List[dict]) -> Optional[str]:
         try:
             response = await openai.ChatCompletion.acreate(
-                model=self.config['model_name'],  # Replace hardcoded model name with config attribute
+                model=self.config['model_name'],
                 messages=messages,
                 max_tokens=1024,
                 n=1,
@@ -129,8 +128,8 @@ class ChatGPT(commands.Cog):
             with tempfile.NamedTemporaryFile(mode="w+", delete=False) as temp_file:
                 temp_file.write(formatted_conversation)
                 temp_file_path = temp_file.name
-
-                discord_file = discord.File(temp_file, filename="conversation.txt")
+                temp_file.close()
+                discord_file = discord.File(temp_file_path, filename="conversation.txt")
                 await ctx.author.send(f"Here is your conversation with {bot_display_name}:", file=discord_file)
 
             os.remove(temp_file_path)
