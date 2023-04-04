@@ -5,6 +5,8 @@ import discord
 import requests
 from discord.ext import commands
 
+import util
+
 
 class Yoink(commands.Cog):
     def __init__(self, bot):
@@ -42,7 +44,7 @@ class Yoink(commands.Cog):
         else:
             return None
 
-    @commands.message_command(name="Yoink emojis", guild_ids=[709655247357739048])
+    @commands.message_command(name="Yoink emojis", guild_ids=util.guilds)
     async def yoink(self, ctx: discord.ApplicationContext, message: discord.Message):
         await ctx.defer(ephemeral=True)
         emos = self._get_emojis(message)
