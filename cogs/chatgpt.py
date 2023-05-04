@@ -279,6 +279,46 @@ class ChatGPT(commands.Cog):
                 ephemeral=True,
             )
 
+    @gpt.command(
+        name="summarize_chat",
+        description="Summarize the last n messages in the current channel",
+        guild_ids=util.guilds,
+    )
+    async def summarize_chat(self, ctx, num_messages: int = 10):
+        if num_messages <= 0:
+            await ctx.respond(
+                "Number of messages to summarize must be greater than 0.",
+                ephemeral=True,
+            )
+            return
+
+        await ctx.respond("Now generating summary…", ephemeral=True)
+        channel = ctx.channel
+        messages = await channel.history(limit=num_messages).flatten()
+        messages.reverse()  # Reverse the messages to get them in chronological order.
+
+        # Prepare the input for GPT
+        text = "\n".join(
+            [f"{message.author.name}: {message.content}" for message in messages]
+        )
+        sysprompt = f"Please provide a summary of the following conversation:\n{text}\n"
+
+        # Send the summary request to GPT
+        conversation = [
+            {
+                "role": "system",
+                "content": sysprompt,
+            }
+        ]
+        async with ctx.channel.typing():
+            summary = await self.send_to_chatgpt(conversation)
+            if summary:
+                await ctx.send(
+                    f"Summary of the last {num_messages} messages:\n\n{summary}"
+                )
+            else:
+                await ctx.respond("Sorry, can't generate a summary right now.")
+
 
 def setup(bot):
     bot.add_cog(ChatGPT(bot))
