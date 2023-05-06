@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import discord
 import openai
 from openai import ChatCompletion, OpenAIError
-from discord.commands import SlashCommandGroup
+from discord.commands import SlashCommandGroup, Option
 from discord.ext import commands
 
 import util
@@ -284,7 +284,13 @@ class ChatGPT(commands.Cog):
         description="Summarize the last n messages in the current channel",
         guild_ids=util.guilds,
     )
-    async def summarize_chat(self, ctx, num_messages: int = 10):
+    async def summarize_chat(
+        self,
+        ctx,
+        num_messages: int = Option(
+            default=50, description="Number of messages to summarize"
+        ),
+    ):
         if num_messages <= 0:
             await ctx.respond(
                 "Number of messages to summarize must be greater than 0.",
@@ -292,7 +298,6 @@ class ChatGPT(commands.Cog):
             )
             return
 
-        await ctx.respond("Now generating summary…", ephemeral=True)
         channel = ctx.channel
         messages = await channel.history(limit=num_messages).flatten()
         messages.reverse()  # Reverse the messages to get them in chronological order.
@@ -301,7 +306,11 @@ class ChatGPT(commands.Cog):
         text = "\n".join(
             [f"{message.author.name}: {message.content}" for message in messages]
         )
-        sysprompt = f"Please provide a summary of the following conversation:\n{text}\n"
+        sysprompt = (
+            f"The following is a conversation between various people in a Discord chat. It is formatted such "
+            f"that each line begins with the name of the speaker, a colon, and then whatever the speaker "
+            f"said. Please provide a summary of the conversation beginning below: \n{text}\n"
+        )
 
         # Send the summary request to GPT
         conversation = [
@@ -311,13 +320,19 @@ class ChatGPT(commands.Cog):
             }
         ]
         async with ctx.channel.typing():
+            await ctx.respond("Working on the summary now", ephemeral=True)
+            loading_message = await ctx.send(
+                f"Now generating summary of the last {num_messages} messages…"
+            )
             summary = await self.send_to_chatgpt(conversation)
             if summary:
-                await ctx.send(
-                    f"Summary of the last {num_messages} messages:\n\n{summary}"
+                await loading_message.edit(
+                    content=f"Summary of the last {num_messages} messages:\n\n{summary}"
                 )
             else:
-                await ctx.respond("Sorry, can't generate a summary right now.")
+                await loading_message.edit(
+                    content="Sorry, can't generate a summary right now."
+                )
 
 
 def setup(bot):
