@@ -6,25 +6,25 @@ from discord.ext import commands
 
 import util
 
-dicegroup = SlashCommandGroup(name="dice", description="Random number generation")
-dice_str = Option(
-    str, name="dice_string", description="A dice string like 1d20 or 3d6+2"
-)
-
 
 class DiceRoll(commands.Cog):
+    dicegroup = SlashCommandGroup(name="dice", description="Random number generation")
+
     def __init__(self, bot):
         self.bot = bot
-        self.bot.add_application_command(dicegroup)
-        pass
 
     @dicegroup.command(
         name="roll",
         description="Roll some dice",
-        options=[dice_str],
         guild_ids=util.guilds,
     )
-    async def roll(self, ctx: discord.ApplicationContext, dice_str: str):
+    async def roll(
+        self,
+        ctx: discord.ApplicationContext,
+        dice_str: Option(
+            str, name="dice_string", description="A dice string like 1d20 or 3d6+2"
+        ),
+    ):
         dicestr = "".join(dice_str)
         total = "Rolling " + dicestr + ": **"
         mod = 0

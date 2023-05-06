@@ -63,10 +63,11 @@ The ChatGPT cog allows users to interact with OpenAI's GPT model via Discord. Th
 
 - Sending user messages to the GPT model and posting AI-generated responses (Only when the bot is @mentioned).
 - Resetting, showing, and saving a user's conversation history with the bot.
+- Summarizing the conversation in a channel
 
 ##### Setup
 
-You will require a paid account with openai. Using the GPT 3.5 turbo model is extremely, extremely cheap but it is not free.
+You will require a paid account with OpenAI. Using the GPT 3.5 turbo model is extremely, extremely cheap but it is not free.
 
 Generate an API key and add it to the config.yml file. 
 
