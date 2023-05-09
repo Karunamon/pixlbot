@@ -22,6 +22,8 @@ cd pixlbot
 pipenv install
 ```
 
+(But you should really consider using Docker, it's so much easier. See below…)
+
 ### Discord Setup
 
 You will need to register a bot account on the [Discord developer portal](https://discord.com/developers/applications). 
@@ -46,6 +48,12 @@ You will notice a few plug-ins commented out. These require further configuratio
 ### Running
 
 `python3 main.py`
+
+Once the bot is running, the db folder will be used to store any persistent, non-configuration data. Make sure to keep it safe.
+
+Or using Docker:
+
+`docker run ghcr.io/karunamon/pixlbot:release -v /path/to/your/config.yml:/app/config.yml -v /path/to/your/db/:/app/db/`
 
 ## Plugin Reference
 
@@ -72,4 +80,3 @@ You will require a paid account with OpenAI. Using the GPT 3.5 turbo model is ex
 Generate an API key and add it to the config.yml file. 
 
 You may also customize the "system" prompt, this is a blurb that the AI sees before every conversation, it can be used to provide instructions or set the general flavor of the conversation.
-
