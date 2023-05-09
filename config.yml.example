@@ -8,9 +8,11 @@ system:
     - cogs.yoink
     - cogs.ftime
     - cogs.roller
+    #- cogs.chatgpt
     #- cogs.roleconcat
     #- cogs.bonk
-
+  admin_roles:
+    - Moderator
 RandomNowPlaying:
   intervalmin: 60
   intervalmax: 900
@@ -21,8 +23,9 @@ RandomNowPlaying:
     - Megaman Battle Network
 
 Bonk:
-  channel: 178310784450691142
-  sticker: 143515690235752459
+  709655247357739048:
+    channel: 778310784450691142
+    sticker: 943515690235752459
 
 ChatGPT:
   api_key: 0

@@ -39,9 +39,9 @@ It would also be helpful to enable developer mode in your Discord client (under 
 
 ### Configuration
 
-Copy `config.yml.example` to `config.yml` and open it in a good text editor (i.e. not Notepad). Insert your bot's token from the developer portal in the appropriate place.
+Copy `config.yml.example` to `config.yml` and open it in a good text editor (i.e. not Notepad). Insert your bot's token from the developer portal in the appropriate place. You should also add the name of a role or two that can do administrative tasks like move messages. These have to match up with the names in Discord exactly, with the same case and everything.
 
-You will notice a couple of plug-ins commented out. These require further configuration before they can be used. Read on to see how to set these up.
+You will notice a few plug-ins commented out. These require further configuration before they can be used. Read on to see how to set these up.
 
 ### Running
 
@@ -56,7 +56,7 @@ This also results in the author getting mentioned like three or four times which
 
 ##### Setup
 
-Grab the ID of the channel bonked messages should go to. You should also upload a sticker which will be used as a reply to the bonked message, and grab its ID as well. Fill these numeric IDs in `config.yml` and uncomment `- cogs.bonk`
+Grab your server ID, and under that, add the ID of the channel bonked messages should go to. You should also upload a sticker which will be used as a reply to the bonked message, and grab its ID as well. Fill these numeric IDs in `config.yml` and uncomment `- cogs.bonk`
 
 ### ChatGPT
 The ChatGPT cog allows users to interact with OpenAI's GPT model via Discord. The main features of this cog include:

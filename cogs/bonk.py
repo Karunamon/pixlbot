@@ -1,3 +1,5 @@
+import datetime
+
 import discord
 from blitzdb import Document, FileBackend
 from discord.ext import commands
@@ -23,7 +25,7 @@ class Bonk(commands.Cog):
         try:
             user = self.backend.get(BonkCount, {"uid": uid})
         except BonkCount.DoesNotExist:
-            return BonkCount({"uid": uid})
+            return BonkCount({"uid": uid, "incidents": []})
         except BonkCount.MultipleDocumentsReturned as e:
             self.bot.logger.error(
                 f"_find_or_make discarding multiple results returned for '{uid}'"
@@ -32,37 +34,32 @@ class Bonk(commands.Cog):
         else:
             return user
 
-    @staticmethod
-    async def _getmsg(
-            ctx: discord.ApplicationContext,
-            msg_id: int,
-            channel: discord.TextChannel = None,
-    ) -> discord.Message:
-        if channel:
-            return await channel.fetch_message(msg_id)
-        else:
-            return await ctx.channel.fetch_message(msg_id)
-
-    @staticmethod
-    async def has_top_role(member: discord.Member, top: int = 3) -> bool:
-        top_roles = sorted(member.guild.roles, key=lambda r: r.position, reverse=True)[
-                    :top
-                    ]
-        return any(role in member.roles for role in top_roles)
+    def _inc_bonk(self, bonker: discord.Member, bonkee: discord.Message):
+        user = self._find_or_make(bonkee.author.id)
+        user["incidents"].append(
+            {
+                "ts": datetime.datetime.now().isoformat(),
+                "bonker": bonker.name,
+                "content": bonkee.content,
+                "location": bonkee.channel.id,
+            }
+        )
+        self.backend.save(user)
 
     @commands.message_command(name="Bonk this message", guild_ids=util.guilds)
     async def bonk(self, ctx: discord.ApplicationContext, message: discord.Message):
         await ctx.defer(ephemeral=True)
-        if not await self.has_top_role(ctx.author):
-            await ctx.respond(
-                "You must have one of the top roles in the server to use this command.",
-                ephemeral=True,
-            )
+        sc = self.config.get(ctx.guild_id)
+        if not sc:
+            await ctx.respond("Bonk not set up for this server.")
             return
-        horny_channel: discord.TextChannel = self.bot.get_channel(
-            self.config["channel"]
-        )
-        bonk_sticker: discord.Sticker = self.bot.get_sticker(self.config["sticker"])
+        # noinspection PyTypeChecker
+        # This can only ever be a Member since we are operating on a guild channel
+        if not util.has_roles(ctx.author, self.bot.config["admin_roles"]):
+            await ctx.respond("Access denied")
+            return
+        horny_channel: discord.TextChannel = self.bot.get_channel(sc["channel"])
+        bonk_sticker: discord.Sticker = self.bot.get_sticker(sc["sticker"])
         await message.reply(content=message.author.mention, stickers=[bonk_sticker])
         await horny_channel.send(
             f"{message.author.mention} (from {message.channel.mention}): {message.content}"
@@ -78,6 +75,8 @@ class Bonk(commands.Cog):
             moved_by=ctx.author,
         )
         await message.author.send(embeds=[e])
+        # noinspection PyTypeChecker
+        self._inc_bonk(ctx.author, message)
         await message.delete()
         await ctx.respond("Bonk sent.")
 
