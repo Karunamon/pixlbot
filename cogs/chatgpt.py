@@ -120,6 +120,8 @@ class ChatGPT(commands.Cog):
             return False
         elif message.mention_everyone:
             return False
+        elif message.channel.is_nsfw():
+            return False
         elif isinstance(message.channel, discord.DMChannel):
             return any(message.author.mutual_guilds)
         elif isinstance(message.channel, discord.Thread):
@@ -286,11 +288,17 @@ class ChatGPT(commands.Cog):
     )
     async def summarize_chat(
         self,
-        ctx,
+        ctx: discord.ApplicationContext,
         num_messages: int = Option(
             default=50, description="Number of messages to summarize"
         ),
     ):
+        if ctx.channel.is_nsfw():
+            await ctx.respond(
+                "Sorry, can't operate in NSFW channels (OpenAI TOS)",
+                ephemeral=True
+            )
+            return
         if num_messages <= 0:
             await ctx.respond(
                 "Number of messages to summarize must be greater than 0.",
