@@ -11,6 +11,7 @@ from discord.ext import commands
 
 import util
 
+MAX_MESSAGE_LENGTH = 2000
 MAX_LENGTH = 4097
 MAX_TOKENS = 512
 
@@ -147,16 +148,32 @@ class ChatGPT(commands.Cog):
             return False
 
     @staticmethod
-    async def reply(message: discord.Message, content: str):
+    async def reply(
+        message: discord.Message, content: str, em: Optional[discord.Embed]
+    ):
         """Replies to the given Message depending on its type. Do a full reply and
         mention the author if the message was sent in public, or just send to the
         channel if it was a direct message or thread."""
-        if isinstance(message.channel, discord.DMChannel):
-            await message.channel.send(content)
-        elif isinstance(message.channel, discord.Thread):
-            await message.channel.send(content)
-        else:
-            await message.reply(content)
+        while len(content) > 0:
+            # If message is too large, find the last newline before the limit
+            if len(content) > MAX_MESSAGE_LENGTH:
+                split_index = content[:MAX_MESSAGE_LENGTH].rfind('\n')
+                # If no newline is found, just split at the max length
+                if split_index == -1:
+                    split_index = MAX_MESSAGE_LENGTH
+            else:
+                split_index = len(content)
+
+            chunk = content[:split_index]
+            # Remove the chunk from the original content
+            content = content[split_index:].lstrip()
+
+            # Send chunk
+            if isinstance(message.channel, (discord.DMChannel, discord.Thread)):
+                await message.channel.send(chunk, embed=em)
+            else:
+                await message.reply(chunk, embed=em)
+            em = None  # Only send the embed with the first chunk
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
