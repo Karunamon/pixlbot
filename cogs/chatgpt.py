@@ -52,10 +52,24 @@ class GPTUser:
         return self.conchars + MAX_TOKENS >= MAX_LENGTH
 
     def _update_conchars(self):
+    @property
+    def _conversation_len(self):
         cl = 0
-        for entry in self.conversation:
-            cl += len(entry["content"])
-        self.conchars = cl
+        if self.conversation:
+            for entry in self.conversation:
+                cl += len(entry["content"])
+        return cl
+
+    def push_conversation(self, utterance: dict[str, str]):
+        """Append the given line of dialogue to this conversation"""
+        self._conversation.append(utterance)
+        self.conversation = self._conversation  # Trigger the setter
+
+    def pop_conversation(self, num: int):
+        """Pop lines of dialogue from  this conversation"""
+        p = self._conversation.pop(num)
+        self.conversation = self._conversation  # Trigger the setter
+        return p
 
     def _suffix_system_prompt(self, sysprompt: str):
         prompt_suffix = (
@@ -162,16 +176,17 @@ class ChatGPT(commands.Cog):
                     user_id, message.author.display_name, self.config["system_prompt"]
                 )
 
-        gu.conversation.append({"role": "user", "content": message.content})
+        gu.push_conversation({"role": "user", "content": message.content})
 
         overflow = []
         while gu.oversized:
-            overflow.append(gu.conversation.pop(0))
+            overflow.append(gu.pop_conversation(0))
 
         async with message.channel.typing():
             response = await self.send_to_chatgpt(gu.conversation)
             if response:
-                gu.conversation.append({"role": "assistant", "content": response})
+                gu.conversation = [
+                gu.push_conversation({"role": "assistant", "content": response})
                 if gu.stale:
                     response = (
                         "*This conversation is pretty old so the next time you talk to me, it will be a fresh "
