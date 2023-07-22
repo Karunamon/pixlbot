@@ -238,7 +238,6 @@ class ChatGPT(commands.Cog):
                 gu = GPTUser(
                     user_id, message.author.display_name, self.config["system_prompt"]
                 )
-
         gu.push_conversation({"role": "user", "content": message.content})
         if gu.soul:
             gu.push_conversation(
@@ -432,7 +431,6 @@ class ChatGPT(commands.Cog):
         messages = await channel.history(limit=num_messages).flatten()
         messages.reverse()  # Reverse the messages to get them in chronological order.
 
-        # Prepare the input for GPT
         text = "\n".join(
             [f"{message.author.name}: {message.content}" for message in messages]
         )
@@ -442,7 +440,6 @@ class ChatGPT(commands.Cog):
             f"said. Please provide a summary of the conversation beginning below: \n{text}\n"
         )
 
-        # Send the summary request to GPT
         conversation = [
             {
                 "role": "system",
@@ -488,6 +485,32 @@ class ChatGPT(commands.Cog):
             await ctx.respond(f"Failed to load {core}: {repr(e)}", ephemeral=True)
             return
         await ctx.respond(f"{core} has been loaded", ephemeral=True)
+
+    @gpt.command(name="help", description="Explain how this all works")
+    async def display_help(self, ctx: discord.ApplicationContext):
+        help_embed = discord.Embed(title="AI Chatbot Help", color=0x3498DB)
+        help_embed.description = f"""I can use AI to hold a conversation. Just @mention me! I also accept DMs if you are in a server with me.
+
+Conversations are specific to each person and are not stored. Additionally, openai has committed to deleting 
+conversations after 30 days and not using them to further train the AI. The bot will only see text that specifically 
+mentions it.
+
+Conversations timeout after six hours and will be reset after that time unless the continue command is used.
+
+Important commands (Others are in the / pop-up, these require additional explanation):
+"""
+        help_embed.add_field(
+            name="load_core",
+            value="EXPERIMENTAL: load a soul core to have a conversation with a specific personality. Resets your "
+                  "current conversation. Use the reset command to return to normal.",
+        )
+        help_embed.add_field(
+            name="continue",
+            value="Once a conversation is six hours old, the bot will say the next message is a fresh start. If you "
+                  "want to continue your conversation rather than starting over, use this command when you see that "
+                  "warning."
+        )
+        await ctx.respond(embed=help_embed, ephemeral=True)
 
 
 def setup(bot):
