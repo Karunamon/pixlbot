@@ -8,7 +8,7 @@ system:
     - cogs.yoink
     - cogs.ftime
     - cogs.roller
-    #- cogs.chatgpt
+    - cogs.chatgpt
     #- cogs.roleconcat
     #- cogs.bonk
   admin_roles:

@@ -10,6 +10,7 @@ from discord.ext.commands.bot import Bot
 
 from util import log
 from util import update_guilds
+from util.souls import scan_cores
 
 
 # noinspection PyDunderSlots
@@ -33,7 +34,7 @@ class PixlBot(Bot, ABC):
         self.logger.info("Ohai! Initializing..")
         self.atshutdown = []
         update_guilds(bot_config["system"]["guilds"])
-
+        scan_cores()
         # Sentry.io integration
         if "sentry" in self.config.keys():
             import sentry_sdk
@@ -72,7 +73,7 @@ class PixlBot(Bot, ABC):
 
     async def on_ready(self):
         self.logger.info("Ready!")
-        self.logger.info(self.guilds)
+        self.logger.info("\n".join([f"{g.id}: {g.name}" for g in self.guilds]))
         await self.sync_commands()
 
     async def on_join_guild(self, guild):
