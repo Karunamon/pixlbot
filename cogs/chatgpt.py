@@ -315,6 +315,24 @@ class ChatGPT(commands.Cog):
             )
 
     @gpt.command(
+        name="continue",
+        description="Continue a stale conversation rather than resetting",
+        guild_ids=util.guilds,
+    )
+    async def continue_conversation(self, ctx):
+        user_id = ctx.author.id
+        if user_id not in self.users:
+            await ctx.respond("You have no active conversation to continue.", ephemeral=True)
+            return
+
+        gu = self.users[user_id]
+        gu.staleseen = False
+        gu.last = datetime.utcnow()
+        self.users[user_id] = gu
+
+        await ctx.respond("Your conversation has been resumed.", ephemeral=True)
+    
+    @gpt.command(
         name="show_conversation",
         description="Show your current conversation with the bot",
         guild_ids=util.guilds,
