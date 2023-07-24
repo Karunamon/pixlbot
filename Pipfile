@@ -8,11 +8,13 @@ py-cord = "~=2.4.0"
 sentry-sdk = "*"
 blitzdb = "~=0.4.4"
 PyYAML = "==6.0"
-requests = "*"
+aiohttp = "*"
 openai = "*"
 
 [dev-packages]
 pytest = "*"
+pytest-mock = "*"
+pytest-asyncio = "*"
 black = "*"
 
 [requires]
