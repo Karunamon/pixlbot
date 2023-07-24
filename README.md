@@ -22,6 +22,8 @@ cd pixlbot
 pipenv install
 ```
 
+(But you should really consider using Docker, it's so much easier. See below…)
+
 ### Discord Setup
 
 You will need to register a bot account on the [Discord developer portal](https://discord.com/developers/applications). 
@@ -39,13 +41,19 @@ It would also be helpful to enable developer mode in your Discord client (under 
 
 ### Configuration
 
-Copy `config.yml.example` to `config.yml` and open it in a good text editor (i.e. not Notepad). Insert your bot's token from the developer portal in the appropriate place.
+Copy `config.yml.example` to `config.yml` and open it in a good text editor (i.e. not Notepad). Insert your bot's token from the developer portal in the appropriate place. You should also add the name of a role or two that can do administrative tasks like move messages. These have to match up with the names in Discord exactly, with the same case and everything.
 
-You will notice a couple of plug-ins commented out. These require further configuration before they can be used. Read on to see how to set these up.
+You will notice a few plug-ins commented out. These require further configuration before they can be used. Read on to see how to set these up.
 
 ### Running
 
 `python3 main.py`
+
+Once the bot is running, the db folder will be used to store any persistent, non-configuration data. Make sure to keep it safe.
+
+Or using Docker:
+
+`docker run ghcr.io/karunamon/pixlbot:release -v /path/to/your/config.yml:/app/config.yml -v /path/to/your/db/:/app/db/`
 
 ## Plugin Reference
 
@@ -56,19 +64,19 @@ This also results in the author getting mentioned like three or four times which
 
 ##### Setup
 
-Grab the ID of the channel bonked messages should go to. You should also upload a sticker which will be used as a reply to the bonked message, and grab its ID as well. Fill these numeric IDs in `config.yml` and uncomment `- cogs.bonk`
+Grab your server ID, and under that, add the ID of the channel bonked messages should go to. You should also upload a sticker which will be used as a reply to the bonked message, and grab its ID as well. Fill these numeric IDs in `config.yml` and uncomment `- cogs.bonk`
 
 ### ChatGPT
 The ChatGPT cog allows users to interact with OpenAI's GPT model via Discord. The main features of this cog include:
 
 - Sending user messages to the GPT model and posting AI-generated responses (Only when the bot is @mentioned).
 - Resetting, showing, and saving a user's conversation history with the bot.
+- Summarizing the conversation in a channel
 
 ##### Setup
 
-You will require a paid account with openai. Using the GPT 3.5 turbo model is extremely, extremely cheap but it is not free.
+You will require a paid account with OpenAI. Using the GPT 3.5 turbo model is extremely, extremely cheap but it is not free.
 
 Generate an API key and add it to the config.yml file. 
 
 You may also customize the "system" prompt, this is a blurb that the AI sees before every conversation, it can be used to provide instructions or set the general flavor of the conversation.
-

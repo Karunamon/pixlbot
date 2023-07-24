@@ -22,6 +22,17 @@ def mkembed(kind: str, description: str, **kwargs) -> discord.Embed:
     return e
 
 
+def has_role(user: discord.Member, rolename: str) -> bool:
+    return bool(discord.utils.get(user.roles, name=rolename))
+
+
+def has_roles(user: discord.Member, roles: list[str]) -> bool:
+    return any(
+        has_role(user, rolestr)
+        for rolestr in roles
+    )
+
+
 def update_guilds(guildlist: list):
     global guilds
     guilds = guildlist
