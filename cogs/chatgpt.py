@@ -342,7 +342,7 @@ class ChatGPT(commands.Cog):
         gu = self.users[user_id]
         formatted_conversation = self.format_conversation(gu)
         bot_display_name = self.bot.user.display_name
-
+        # TODO: Automatically split long conversations, this will break above 2000 characters
         try:
             await ctx.author.send(
                 f"Here is your conversation with {bot_display_name}:\n\n{formatted_conversation}"
@@ -407,6 +407,10 @@ class ChatGPT(commands.Cog):
         num_messages: int = Option(
             default=50, description="Number of messages to summarize"
         ),
+        prompt: str = Option(
+            description="Custom prompt to use for the summary (Actual chat is inserted after these words)",
+            default=None
+        )
     ):
         if ctx.channel.is_nsfw():
             await ctx.respond(
@@ -427,7 +431,7 @@ class ChatGPT(commands.Cog):
         text = "\n".join(
             [f"{message.author.name}: {message.content}" for message in messages]
         )
-        sysprompt = (
+        sysprompt = f"{prompt}\n{text}" if prompt else (
             f"The following is a conversation between various people in a Discord chat. It is formatted such "
             f"that each line begins with the name of the speaker, a colon, and then whatever the speaker "
             f"said. Please provide a summary of the conversation beginning below: \n{text}\n"
