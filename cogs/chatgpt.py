@@ -158,10 +158,10 @@ class ChatGPT(commands.Cog):
             return False
         elif message.mention_everyone:
             return False
-        elif message.channel.is_nsfw():
-            return False
         elif isinstance(message.channel, discord.DMChannel):
             return any(message.author.mutual_guilds)
+        elif message.channel.is_nsfw():
+            return False
         elif isinstance(message.channel, discord.Thread):
             if message.channel.me and message.channel.member_count == 2:
                 return True
