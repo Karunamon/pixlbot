@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import discord
 import openai
 import yaml
-from openai import ChatCompletion, OpenAIError
+from openai import ChatCompletion
 from discord.commands import SlashCommandGroup, Option
 from discord.ext import commands
 
@@ -92,9 +92,12 @@ class GPTUser:
                 cl += len(entry["content"])
         return cl
 
-    def push_conversation(self, utterance: dict[str, str]):
+    def push_conversation(self, utterance: dict[str, str], copy=False):
         """Append the given line of dialogue to this conversation"""
-        self._conversation.append(utterance)
+        if copy:
+            self._conversation.insert(-1, utterance)
+        else:
+            self._conversation.append(utterance)
         self.conversation = self._conversation  # Trigger the setter
 
     def pop_conversation(self, num: int):
@@ -167,6 +170,16 @@ class ChatGPT(commands.Cog):
         else:
             return False
 
+    def copy_public_reply(self, message: discord.Message):
+        if message.reference:
+            replied_to = message.reference.resolved
+            if replied_to and replied_to.author == self.bot.user:
+                other_user_id = replied_to.author.id
+                if other_user_id in self.users:
+                    other_user = self.users[other_user_id]
+                    last_bot_msg = other_user.conversation[-1]
+                    self.users[message.author.id].push_conversation(last_bot_msg, True)
+
     @staticmethod
     async def reply(
         message: discord.Message, content: str, em: Optional[discord.Embed]
@@ -200,6 +213,8 @@ class ChatGPT(commands.Cog):
         if not self.should_reply(message):
             return
 
+        self.copy_public_reply(message)
+
         user_id = message.author.id
         gu = self.users.get(user_id) or GPTUser(
             user_id, message.author.display_name, self.config["system_prompt"]
@@ -209,7 +224,9 @@ class ChatGPT(commands.Cog):
         if gu.stale:
             if gu.staleseen:
                 del self.users[user_id]
-                gu = GPTUser(user_id, message.author.display_name, self.config["system_prompt"])
+                gu = GPTUser(
+                    user_id, message.author.display_name, self.config["system_prompt"]
+                )
         gu.push_conversation({"role": "user", "content": message.content})
         if gu.soul:
             gu.push_conversation(
@@ -297,7 +314,9 @@ class ChatGPT(commands.Cog):
     async def continue_conversation(self, ctx):
         user_id = ctx.author.id
         if user_id not in self.users:
-            await ctx.respond("You have no active conversation to continue.", ephemeral=True)
+            await ctx.respond(
+                "You have no active conversation to continue.", ephemeral=True
+            )
             return
 
         gu = self.users[user_id]
@@ -306,7 +325,7 @@ class ChatGPT(commands.Cog):
         self.users[user_id] = gu
 
         await ctx.respond("Your conversation has been resumed.", ephemeral=True)
-    
+
     @gpt.command(
         name="show_conversation",
         description="Show your current conversation with the bot",
