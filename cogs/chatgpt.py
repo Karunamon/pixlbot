@@ -273,17 +273,21 @@ class ChatGPT(commands.Cog):
         description="Reset your conversation history with the bot",
         guild_ids=util.guilds,
     )
-    async def reset(self, ctx):
+    async def reset(
+        self,
+        ctx,
+        system_prompt: str = Option(
+            description="The system (initial) prompt for the new conversation",
+            default=None,
+        ),
+    ):
         user_id = ctx.author.id
-        if user_id in self.users:
-            del self.users[user_id]
-            await ctx.respond(
-                "Your conversation history has been reset.", ephemeral=True
-            )
-        else:
-            await ctx.respond(
-                "You have no conversation history to reset.", ephemeral=True
-            )
+        self.users[user_id] = GPTUser(
+            user_id,
+            ctx.author.display_name,
+            f"{system_prompt}" if system_prompt else self.config["system_prompt"],
+        )
+        await ctx.respond("Your conversation history has been reset.", ephemeral=True)
 
     @gpt.command(
         name="continue",
