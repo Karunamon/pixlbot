@@ -7,7 +7,7 @@ name = "pypi"
 py-cord = "~=2.4.0"
 sentry-sdk = "*"
 blitzdb = "~=0.4.4"
-PyYAML = "==6.0"
+PyYAML = "*"
 aiohttp = "*"
 openai = "*"
 
@@ -18,4 +18,4 @@ pytest-asyncio = "*"
 black = "*"
 
 [requires]
-python_version = "3.8"
+python_version = "3.9"
