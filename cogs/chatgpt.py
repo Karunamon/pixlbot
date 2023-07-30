@@ -81,7 +81,7 @@ class GPTUser:
     def soul(self, new_soul: Soul):
         self._soul = new_soul
         self.conversation = [
-            {"role": "system", "content": SOUL_PROMPT.format(**dict(new_soul))}
+            {"role": "system", "content": SOUL_PROMPT.format(**new_soul._asdict())}
         ]
 
     @property
@@ -342,11 +342,11 @@ class ChatGPT(commands.Cog):
         gu = self.users[user_id]
         formatted_conversation = self.format_conversation(gu)
         bot_display_name = self.bot.user.display_name
-        # TODO: Automatically split long conversations, this will break above 2000 characters
         try:
-            await ctx.author.send(
-                f"Here is your conversation with {bot_display_name}:\n\n{formatted_conversation}"
+            msg = await ctx.author.send(
+                f"Here is your conversation with {bot_display_name}:"
             )
+            await self.reply(msg, formatted_conversation, None)
             await ctx.respond(
                 "I've sent you a private message with your conversation history.",
                 ephemeral=True,
@@ -466,11 +466,11 @@ class ChatGPT(commands.Cog):
     async def load_core(
         self,
         ctx: discord.ApplicationContext,
-        core: discord.Option(str, choices=util.souls.cores, required=True),
+        core: discord.Option(str, autocomplete=util.souls.scan_cores, required=True),
         telepathy: discord.Option(bool, default=True, description="Show thinking"),
     ):
         try:
-            y = yaml.safe_load(open(f"cores/{core}"))
+            y = yaml.safe_load(open(f"cores/{core.split(' ')[0]}"))
             s = Soul(**y)
             # noinspection PyTypeChecker
             ca: discord.Member = (
@@ -513,5 +513,4 @@ Important commands (Others are in the / pop-up, these require additional explana
 
 
 def setup(bot):
-    util.souls.scan_cores()
     bot.add_cog(ChatGPT(bot))

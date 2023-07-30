@@ -10,7 +10,6 @@ from discord.ext.commands.bot import Bot
 
 from util import log
 from util import update_guilds
-from util.souls import scan_cores
 
 
 # noinspection PyDunderSlots
@@ -34,7 +33,6 @@ class PixlBot(Bot, ABC):
         self.logger.info("Ohai! Initializing..")
         self.atshutdown = []
         update_guilds(bot_config["system"]["guilds"])
-        scan_cores()
         # Sentry.io integration
         if "sentry" in self.config.keys():
             import sentry_sdk
