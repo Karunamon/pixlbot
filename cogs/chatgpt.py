@@ -80,7 +80,7 @@ class GPTUser:
         return formatted_conversation
 
     @property
-    def stale(self):
+    def is_stale(self):
         current_time = datetime.utcnow()
         age = current_time - self.last
         return age > timedelta(hours=6)
@@ -117,7 +117,7 @@ class GPTUser:
         self.conversation = self._conversation  # Trigger the setter
 
     def pop_conversation(self, num: int):
-        """Pop lines of dialogue from  this conversation"""
+        """Pop lines of dialogue from this conversation"""
         p = self._conversation.pop(num)
         self.conversation = self._conversation  # Trigger the setter
         return p
@@ -154,6 +154,10 @@ class ChatGPT(commands.Cog):
         return content.replace(mention, "").strip()
 
     def should_reply(self, message: discord.Message) -> bool:
+        """Determine whether the given message should be replied to. TL;DR: DON'T reply to system messages,
+        the bots own messages, @everyone pings, or anything in a NSFW channel. DO reply to direct messages where we
+        share a guild with the sender, in threads containing only the bot and one other person, and otherwise to
+        messages where we were mentioned."""
         if message.is_system():
             return False
         elif message.author.bot:
@@ -223,7 +227,7 @@ class ChatGPT(commands.Cog):
         )
 
         message.content = self.remove_bot_mention(message.content)
-        if gu.stale:
+        if gu.is_stale:
             if gu.staleseen:
                 del self.users[user_id]
                 gu = GPTUser(
@@ -266,7 +270,7 @@ class ChatGPT(commands.Cog):
                     or (y["role"] != "system" and x > 0)
                 ]  # Throw out any system prompts but the first one
                 gu.push_conversation({"role": "assistant", "content": response})
-                if gu.stale:
+                if gu.is_stale:
                     response = (
                         "*This conversation is pretty old so the next time you talk to me, it will be a fresh "
                         "start. Please take this opportunity to save our conversation using the /ai save commands "
@@ -412,8 +416,8 @@ class ChatGPT(commands.Cog):
         ),
         prompt: str = Option(
             description="Custom prompt to use for the summary (Actual chat is inserted after these words)",
-            default=None
-        )
+            default=None,
+        ),
     ):
         if ctx.channel.is_nsfw():
             await ctx.respond(
@@ -434,10 +438,14 @@ class ChatGPT(commands.Cog):
         text = "\n".join(
             [f"{message.author.name}: {message.content}" for message in messages]
         )
-        sysprompt = f"{prompt}\n{text}" if prompt else (
-            f"The following is a conversation between various people in a Discord chat. It is formatted such "
-            f"that each line begins with the name of the speaker, a colon, and then whatever the speaker "
-            f"said. Please provide a summary of the conversation beginning below: \n{text}\n"
+        sysprompt = (
+            f"{prompt}\n{text}"
+            if prompt
+            else (
+                f"The following is a conversation between various people in a Discord chat. It is formatted such "
+                f"that each line begins with the name of the speaker, a colon, and then whatever the speaker "
+                f"said. Please provide a summary of the conversation beginning below: \n{text}\n"
+            )
         )
 
         conversation = [
@@ -491,7 +499,8 @@ class ChatGPT(commands.Cog):
     @gpt.command(name="help", description="Explain how this all works")
     async def display_help(self, ctx: discord.ApplicationContext):
         help_embed = discord.Embed(title="AI Chatbot Help", color=0x3498DB)
-        help_embed.description = f"""I can use AI to hold a conversation. Just @mention me! I also accept DMs if you are in a server with me.
+        help_embed.description = f"""I can use AI to hold a conversation. Just @mention me! I also accept DMs if you 
+        are in a server with me.
 
 Conversations are specific to each person and are not stored. Additionally, openai has committed to deleting 
 conversations after 30 days and not using them to further train the AI. The bot will only see text that specifically 
