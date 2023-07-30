@@ -342,11 +342,11 @@ class ChatGPT(commands.Cog):
         gu = self.users[user_id]
         formatted_conversation = self.format_conversation(gu)
         bot_display_name = self.bot.user.display_name
-        # TODO: Automatically split long conversations, this will break above 2000 characters
         try:
-            await ctx.author.send(
-                f"Here is your conversation with {bot_display_name}:\n\n{formatted_conversation}"
+            msg = await ctx.author.send(
+                f"Here is your conversation with {bot_display_name}:"
             )
+            await self.reply(msg, formatted_conversation, None)
             await ctx.respond(
                 "I've sent you a private message with your conversation history.",
                 ephemeral=True,
