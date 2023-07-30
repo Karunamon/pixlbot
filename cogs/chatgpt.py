@@ -67,6 +67,18 @@ class GPTUser:
         self._conversation = value
         self.last = datetime.utcnow()
 
+    def format_conversation(self, bot_name: str) -> str:
+        """Returns a pretty-printed version of the given GPTUser's conversation history. System prompts are ignored"""
+        formatted_conversation = [
+            f"{self.name}: {msg['content']}"
+            if msg["role"] == "user"
+            else f"{bot_name}: {msg['content']}"
+            for msg in self.conversation
+            if msg["role"] != "system"
+        ]
+        formatted_conversation = "\n".join(formatted_conversation)
+        return formatted_conversation
+
     @property
     def stale(self):
         current_time = datetime.utcnow()
@@ -140,21 +152,6 @@ class ChatGPT(commands.Cog):
     def remove_bot_mention(self, content: str) -> str:
         mention = self.bot.user.mention
         return content.replace(mention, "").strip()
-
-    def format_conversation(self, gu: GPTUser) -> str:
-        formatted_conversation = ""
-        bot_name = self.bot.user.display_name
-
-        for msg in gu.conversation:
-            role = msg["role"]
-            content = msg["content"]
-
-            if role == "user":
-                formatted_conversation += f"{gu.name}: {content}\n"
-            elif role == "assistant":
-                formatted_conversation += f"{bot_name}: {content}\n"
-
-        return formatted_conversation
 
     def should_reply(self, message: discord.Message) -> bool:
         if message.is_system():
@@ -345,8 +342,9 @@ class ChatGPT(commands.Cog):
             return
 
         gu = self.users[user_id]
-        formatted_conversation = self.format_conversation(gu)
         bot_display_name = self.bot.user.display_name
+        formatted_conversation = gu.format_conversation(bot_display_name)
+
         try:
             msg = await ctx.author.send(
                 f"Here is your conversation with {bot_display_name}:"
@@ -377,8 +375,8 @@ class ChatGPT(commands.Cog):
             return
 
         gu = self.users[user_id]
-        formatted_conversation = self.format_conversation(gu)
         bot_display_name = self.bot.user.display_name
+        formatted_conversation = gu.format_conversation(bot_display_name)
 
         try:
             with io.BytesIO() as temp_file:
