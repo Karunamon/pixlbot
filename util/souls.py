@@ -21,10 +21,11 @@ def format_from_soul(txt: str) -> (Optional[str], list):
         return None
 
 
-def scan_cores():
+def scan_cores(*args):
     for f in os.listdir("cores"):
         sc = yaml.safe_load(open(f"cores/{f}"))
         cores[f] = sc["name"]
+    return [f"{k} ({cores[k]})" for k in cores]
 
 
 Soul = namedtuple(

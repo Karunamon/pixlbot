@@ -81,7 +81,7 @@ class GPTUser:
     def soul(self, new_soul: Soul):
         self._soul = new_soul
         self.conversation = [
-            {"role": "system", "content": SOUL_PROMPT.format(**dict(new_soul))}
+            {"role": "system", "content": SOUL_PROMPT.format(**new_soul._asdict())}
         ]
 
     @property
@@ -466,11 +466,11 @@ class ChatGPT(commands.Cog):
     async def load_core(
         self,
         ctx: discord.ApplicationContext,
-        core: discord.Option(str, choices=util.souls.cores, required=True),
+        core: discord.Option(str, autocomplete=util.souls.scan_cores, required=True),
         telepathy: discord.Option(bool, default=True, description="Show thinking"),
     ):
         try:
-            y = yaml.safe_load(open(f"cores/{core}"))
+            y = yaml.safe_load(open(f"cores/{core.split(' ')[0]}"))
             s = Soul(**y)
             # noinspection PyTypeChecker
             ca: discord.Member = (
@@ -513,5 +513,4 @@ Important commands (Others are in the / pop-up, these require additional explana
 
 
 def setup(bot):
-    util.souls.scan_cores()
     bot.add_cog(ChatGPT(bot))
