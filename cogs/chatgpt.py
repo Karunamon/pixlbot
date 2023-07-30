@@ -1,6 +1,7 @@
 import io
 from typing import List, Optional, Dict
 from datetime import datetime, timedelta
+from hashlib import sha256
 
 import discord
 import openai
@@ -22,6 +23,7 @@ class GPTUser:
     __slots__ = [
         "id",
         "name",
+        "namehash",
         "_conversation",
         "last",
         "staleseen",
@@ -30,6 +32,7 @@ class GPTUser:
     ]
     id: int
     name: str
+    namehash: str
     _conversation: List[Dict[str, str]]
     last: datetime
     stale: bool
@@ -40,6 +43,7 @@ class GPTUser:
     def __init__(self, uid: int, uname: str, sysprompt: str):
         self.id = uid
         self.name = uname
+        self.namehash = sha256(str(uid).encode("utf-8")).hexdigest()
         self.staleseen = False
         prompt_suffix = (
             f"The user's name is {self.name} and it should be used wherever possible."
@@ -117,7 +121,7 @@ class ChatGPT(commands.Cog):
         openai.api_key = self.config["api_key"]
         bot.logger.info("ChatGPT integration initialized")
 
-    async def send_to_chatgpt(self, messages: List[dict]) -> Optional[str]:
+    async def send_to_chatgpt(self, messages: List[dict], user: str) -> Optional[str]:
         try:
             response = await ChatCompletion.acreate(
                 model=self.config["model_name"],
@@ -126,6 +130,7 @@ class ChatGPT(commands.Cog):
                 n=1,
                 stop=None,
                 temperature=0.5,
+                user=user,
             )
             return response.choices[0]["message"]["content"]
         except Exception as e:
@@ -240,7 +245,7 @@ class ChatGPT(commands.Cog):
             overflow.append(gu.pop_conversation(0))
 
         async with message.channel.typing():
-            response = await self.send_to_chatgpt(gu.conversation)
+            response = await self.send_to_chatgpt(gu.conversation, gu.namehash)
             telembed = None
             if gu.soul:
                 response, telepathy = util.souls.format_from_soul(response)
@@ -448,7 +453,7 @@ class ChatGPT(commands.Cog):
             loading_message = await ctx.send(
                 f"Now generating summary of the last {num_messages} messages…"
             )
-            summary = await self.send_to_chatgpt(conversation)
+            summary = await self.send_to_chatgpt(conversation, "0")
             if summary:
                 await loading_message.edit(
                     content=f"Summary of the last {num_messages} messages:\n\n{summary}"
