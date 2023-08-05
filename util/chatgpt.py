@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from hashlib import sha256
 from typing import List, Dict, Optional
 
-from souls import Soul, SOUL_PROMPT
+from util.souls import Soul, SOUL_PROMPT
 
 
 class GPTUser:

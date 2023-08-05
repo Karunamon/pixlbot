@@ -10,9 +10,8 @@ from discord.commands import SlashCommandGroup, Option
 from discord.ext import commands
 
 import util
-import util.souls
 from util.chatgpt import GPTUser, MAX_TOKENS
-from souls import Soul, REMEMBRANCE_PROMPT
+from util.souls import Soul, REMEMBRANCE_PROMPT
 
 MAX_MESSAGE_LENGTH = 2000
 
