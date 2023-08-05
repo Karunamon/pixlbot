@@ -1,6 +1,6 @@
 import io
 from typing import List, Optional, Dict
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import discord
 import openai
@@ -11,100 +11,10 @@ from discord.ext import commands
 
 import util
 import util.souls
-from souls import Soul, SOUL_PROMPT, REMEMBRANCE_PROMPT
+from util.chatgpt import GPTUser, MAX_TOKENS
+from souls import Soul, REMEMBRANCE_PROMPT
 
 MAX_MESSAGE_LENGTH = 2000
-MAX_LENGTH = 4097
-MAX_TOKENS = 512
-
-
-class GPTUser:
-    __slots__ = [
-        "id",
-        "name",
-        "_conversation",
-        "last",
-        "staleseen",
-        "_soul",
-        "telepathy",
-    ]
-    id: int
-    name: str
-    _conversation: List[Dict[str, str]]
-    last: datetime
-    stale: bool
-    staleseen: bool
-    _soul: Optional[Soul]
-    telepathy: bool
-
-    def __init__(self, uid: int, uname: str, sysprompt: str):
-        self.id = uid
-        self.name = uname
-        self.staleseen = False
-        prompt_suffix = (
-            f"The user's name is {self.name} and it should be used wherever possible."
-        )
-        self._conversation = [
-            {
-                "role": "system",
-                "content": sysprompt + prompt_suffix,
-            }
-        ]
-        self.last = datetime.utcnow()
-        self._soul = None
-        self.telepathy = False
-
-    @property
-    def conversation(self):
-        return self._conversation
-
-    @conversation.setter
-    def conversation(self, value):
-        self._conversation = value
-        self.last = datetime.utcnow()
-
-    @property
-    def stale(self):
-        current_time = datetime.utcnow()
-        age = current_time - self.last
-        return age > timedelta(hours=6)
-
-    @property
-    def oversized(self):
-        return self._conversation_len + MAX_TOKENS >= MAX_LENGTH
-
-    @property
-    def soul(self):
-        return self._soul
-
-    @soul.setter
-    def soul(self, new_soul: Soul):
-        self._soul = new_soul
-        self.conversation = [
-            {"role": "system", "content": SOUL_PROMPT.format(**new_soul._asdict())}
-        ]
-
-    @property
-    def _conversation_len(self):
-        cl = 0
-        if self.conversation:
-            for entry in self.conversation:
-                cl += len(entry["content"])
-        return cl
-
-    def push_conversation(self, utterance: dict[str, str], copy=False):
-        """Append the given line of dialogue to this conversation"""
-        if copy:
-            self._conversation.insert(-1, utterance)
-        else:
-            self._conversation.append(utterance)
-        self.conversation = self._conversation  # Trigger the setter
-
-    def pop_conversation(self, num: int):
-        """Pop lines of dialogue from  this conversation"""
-        p = self._conversation.pop(num)
-        self.conversation = self._conversation  # Trigger the setter
-        return p
 
 
 class ChatGPT(commands.Cog):
@@ -117,7 +27,7 @@ class ChatGPT(commands.Cog):
         openai.api_key = self.config["api_key"]
         bot.logger.info("ChatGPT integration initialized")
 
-    async def send_to_chatgpt(self, messages: List[dict]) -> Optional[str]:
+    async def send_to_chatgpt(self, messages: List[dict], user: str) -> Optional[str]:
         try:
             response = await ChatCompletion.acreate(
                 model=self.config["model_name"],
@@ -126,6 +36,7 @@ class ChatGPT(commands.Cog):
                 n=1,
                 stop=None,
                 temperature=0.5,
+                user=user,
             )
             return response.choices[0]["message"]["content"]
         except Exception as e:
@@ -136,22 +47,11 @@ class ChatGPT(commands.Cog):
         mention = self.bot.user.mention
         return content.replace(mention, "").strip()
 
-    def format_conversation(self, gu: GPTUser) -> str:
-        formatted_conversation = ""
-        bot_name = self.bot.user.display_name
-
-        for msg in gu.conversation:
-            role = msg["role"]
-            content = msg["content"]
-
-            if role == "user":
-                formatted_conversation += f"{gu.name}: {content}\n"
-            elif role == "assistant":
-                formatted_conversation += f"{bot_name}: {content}\n"
-
-        return formatted_conversation
-
     def should_reply(self, message: discord.Message) -> bool:
+        """Determine whether the given message should be replied to. TL;DR: DON'T reply to system messages,
+        bot messages, @everyone pings, or anything in a NSFW channel. DO reply to direct messages where we
+        share a guild with the sender, in threads containing only the bot and one other person, and otherwise to
+        messages where we were mentioned."""
         if message.is_system():
             return False
         elif message.author.bot:
@@ -221,7 +121,7 @@ class ChatGPT(commands.Cog):
         )
 
         message.content = self.remove_bot_mention(message.content)
-        if gu.stale:
+        if gu.is_stale:
             if gu.staleseen:
                 del self.users[user_id]
                 gu = GPTUser(
@@ -240,7 +140,7 @@ class ChatGPT(commands.Cog):
             overflow.append(gu.pop_conversation(0))
 
         async with message.channel.typing():
-            response = await self.send_to_chatgpt(gu.conversation)
+            response = await self.send_to_chatgpt(gu.conversation, gu.namehash)
             telembed = None
             if gu.soul:
                 response, telepathy = util.souls.format_from_soul(response)
@@ -256,6 +156,7 @@ class ChatGPT(commands.Cog):
                     if gu.telepathy
                     else None
                 )
+
             if response:
                 gu.conversation = [
                     y
@@ -264,7 +165,7 @@ class ChatGPT(commands.Cog):
                     or (y["role"] != "system" and x > 0)
                 ]  # Throw out any system prompts but the first one
                 gu.push_conversation({"role": "assistant", "content": response})
-                if gu.stale:
+                if gu.is_stale:
                     response = (
                         "*This conversation is pretty old so the next time you talk to me, it will be a fresh "
                         "start. Please take this opportunity to save our conversation using the /ai save commands "
@@ -279,9 +180,12 @@ class ChatGPT(commands.Cog):
                         "longer useful.*\n\n" + response
                     )
                     gu.conversation = overflow + gu.conversation
-                self.users[user_id] = gu
             else:
                 response = "Sorry, can't talk to OpenAI right now."
+                gu.pop_conversation()  # GPT didn't get the last thing the user said, so forget it
+                if gu.soul:
+                    gu.pop_conversation()  # We have to clear the remembrance prompt as well
+            self.users[user_id] = gu
 
             await self.reply(message, response, telembed)
 
@@ -340,8 +244,9 @@ class ChatGPT(commands.Cog):
             return
 
         gu = self.users[user_id]
-        formatted_conversation = self.format_conversation(gu)
         bot_display_name = self.bot.user.display_name
+        formatted_conversation = gu.format_conversation(bot_display_name)
+
         try:
             msg = await ctx.author.send(
                 f"Here is your conversation with {bot_display_name}:"
@@ -372,8 +277,8 @@ class ChatGPT(commands.Cog):
             return
 
         gu = self.users[user_id]
-        formatted_conversation = self.format_conversation(gu)
         bot_display_name = self.bot.user.display_name
+        formatted_conversation = gu.format_conversation(bot_display_name)
 
         try:
             with io.BytesIO() as temp_file:
@@ -409,8 +314,8 @@ class ChatGPT(commands.Cog):
         ),
         prompt: str = Option(
             description="Custom prompt to use for the summary (Actual chat is inserted after these words)",
-            default=None
-        )
+            default=None,
+        ),
     ):
         if ctx.channel.is_nsfw():
             await ctx.respond(
@@ -431,10 +336,14 @@ class ChatGPT(commands.Cog):
         text = "\n".join(
             [f"{message.author.name}: {message.content}" for message in messages]
         )
-        sysprompt = f"{prompt}\n{text}" if prompt else (
-            f"The following is a conversation between various people in a Discord chat. It is formatted such "
-            f"that each line begins with the name of the speaker, a colon, and then whatever the speaker "
-            f"said. Please provide a summary of the conversation beginning below: \n{text}\n"
+        sysprompt = (
+            f"{prompt}\n{text}"
+            if prompt
+            else (
+                f"The following is a conversation between various people in a Discord chat. It is formatted such "
+                f"that each line begins with the name of the speaker, a colon, and then whatever the speaker "
+                f"said. Please provide a summary of the conversation beginning below: \n{text}\n"
+            )
         )
 
         conversation = [
@@ -448,7 +357,7 @@ class ChatGPT(commands.Cog):
             loading_message = await ctx.send(
                 f"Now generating summary of the last {num_messages} messages…"
             )
-            summary = await self.send_to_chatgpt(conversation)
+            summary = await self.send_to_chatgpt(conversation, "0")
             if summary:
                 await loading_message.edit(
                     content=f"Summary of the last {num_messages} messages:\n\n{summary}"
@@ -488,7 +397,8 @@ class ChatGPT(commands.Cog):
     @gpt.command(name="help", description="Explain how this all works")
     async def display_help(self, ctx: discord.ApplicationContext):
         help_embed = discord.Embed(title="AI Chatbot Help", color=0x3498DB)
-        help_embed.description = f"""I can use AI to hold a conversation. Just @mention me! I also accept DMs if you are in a server with me.
+        help_embed.description = f"""I can use AI to hold a conversation. Just @mention me! I also accept DMs if you 
+        are in a server with me.
 
 Conversations are specific to each person and are not stored. Additionally, openai has committed to deleting 
 conversations after 30 days and not using them to further train the AI. The bot will only see text that specifically 
