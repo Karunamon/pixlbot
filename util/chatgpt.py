@@ -2,6 +2,7 @@ from collections import namedtuple
 from datetime import datetime, timedelta
 from hashlib import sha256
 from typing import List, Dict, Optional
+from enum import Flag, auto
 
 from util.souls import Soul, SOUL_PROMPT
 
@@ -10,6 +11,12 @@ import tiktoken
 Model = namedtuple(
     "Model", "model max_tokens temperature", defaults=("gpt-4", 512, 0.5)
 )
+
+
+class UserConfig(Flag):
+    SHOWSTATS = auto()
+
+
 class GPTUser:
     __slots__ = [
         "id",
@@ -21,6 +28,7 @@ class GPTUser:
         "_soul",
         "telepathy",
         "model",
+        "config",
         "_encoding",
     ]
     id: int
@@ -33,6 +41,7 @@ class GPTUser:
     _soul: Optional[Soul]
     telepathy: bool
     model: Model
+    config: UserConfig
     _encoding: tiktoken.Encoding
 
     # noinspection PyArgumentList
@@ -61,6 +70,7 @@ class GPTUser:
         self._soul = None
         self.telepathy = False
         self.model = model
+        self.config = UserConfig.SHOWSTATS
         self._encoding = tiktoken.encoding_for_model(model.model)
 
     @property

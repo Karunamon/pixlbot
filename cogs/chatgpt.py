@@ -178,6 +178,14 @@ class ChatGPT(commands.Cog):
                         "longer useful.*\n\n" + response
                     )
                     gu.conversation = overflow + gu.conversation
+                if gu.config.SHOWSTATS:
+                    response = (
+                        response
+                        + f"\n\n*📏{gu._conversation_len}/{MAX_LENGTH}{'(❗)' if gu.oversized else ''}  "
+                        f"{'👼' + gu.soul.name if gu.soul else ''}  "
+                        f"🗣️{gu.model.model}  "
+                        f"*"
+                    )
             else:
                 response = "Sorry, can't talk to OpenAI right now."
                 gu.pop_conversation()  # GPT didn't get the last thing the user said, so forget it
