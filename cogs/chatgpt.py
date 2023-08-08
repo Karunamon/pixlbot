@@ -1,6 +1,5 @@
 import io
 from typing import List, Optional, Dict
-from datetime import datetime
 
 import discord
 import openai
@@ -10,7 +9,7 @@ from discord.commands import SlashCommandGroup, Option
 from discord.ext import commands
 
 import util
-from util.chatgpt import GPTUser, MAX_TOKENS
+from util.chatgpt import GPTUser, MAX_LENGTH
 from util.souls import Soul, REMEMBRANCE_PROMPT
 
 MAX_MESSAGE_LENGTH = 2000
@@ -26,16 +25,16 @@ class ChatGPT(commands.Cog):
         openai.api_key = self.config["api_key"]
         bot.logger.info("ChatGPT integration initialized")
 
-    async def send_to_chatgpt(self, messages: List[dict], user: str) -> Optional[str]:
+    async def send_to_chatgpt(
+        self, messages: Optional[List[dict]], user: GPTUser
+    ) -> Optional[str]:
         try:
             response = await ChatCompletion.acreate(
-                model=self.config["model_name"],
-                messages=messages,
-                max_tokens=MAX_TOKENS,
+                **user.model._asdict(),  # Name, max_tokens, temperature
+                messages=messages or user.conversation,
                 n=1,
                 stop=None,
-                temperature=0.5,
-                user=user,
+                user=user.idhash,
             )
             return response.choices[0]["message"]["content"]
         except Exception as e:
@@ -139,7 +138,7 @@ class ChatGPT(commands.Cog):
             overflow.append(gu.pop_conversation(0))
 
         async with message.channel.typing():
-            response = await self.send_to_chatgpt(gu.conversation, gu.namehash)
+            response = await self.send_to_chatgpt(None, gu)
             telembed = None
             if gu.soul:
                 response, telepathy = util.souls.format_from_soul(response)
@@ -315,6 +314,9 @@ class ChatGPT(commands.Cog):
             default=None,
         ),
     ):
+        gu = self.users.get(ctx.author.id) or GPTUser(
+            ctx.author.id, ctx.author.name, ""
+        )
         if ctx.channel.is_nsfw():
             await ctx.respond(
                 "Sorry, can't operate in NSFW channels (OpenAI TOS)", ephemeral=True
@@ -355,7 +357,7 @@ class ChatGPT(commands.Cog):
             loading_message = await ctx.send(
                 f"Now generating summary of the last {num_messages} messages…"
             )
-            summary = await self.send_to_chatgpt(conversation, "0")
+            summary = await self.send_to_chatgpt(conversation, gu)
             if summary:
                 await loading_message.edit(
                     content=f"Summary of the last {num_messages} messages:\n\n{summary}"

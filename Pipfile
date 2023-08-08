@@ -10,6 +10,7 @@ blitzdb = "~=0.4.4"
 PyYAML = "*"
 aiohttp = "*"
 openai = "*"
+tiktoken = "~=0.4.0"
 
 [dev-packages]
 pytest = "*"

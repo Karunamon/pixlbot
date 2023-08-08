@@ -11,7 +11,7 @@ class TestGPTUser:
         user = GPTUser(1, "John", "Hello.")
         assert user.id == 1
         assert user.name == "John"
-        assert user.namehash == sha256(str(1).encode("utf-8")).hexdigest()
+        assert user.idhash == sha256(str(1).encode("utf-8")).hexdigest()
         assert user._conversation == [
             {
                 "role": "system",
@@ -39,18 +39,6 @@ class TestGPTUser:
         user.soul = soul
         assert user._soul == soul
         assert len(user._conversation) == 1
-
-    # #  Tests that the conversation history is properly truncated when it exceeds the maximum length
-    # def test_truncate_conversation_history(self):
-    #     user = GPTUser(1, "John", "Hello")
-    #     message = {"role": "user", "content": "a" * 500}
-    #     for i in range(10):
-    #         user.push_conversation(message)
-    #     assert len(user._conversation) == 10
-    #     assert user.oversized == True
-    #     user.push_conversation(message)
-    #     assert len(user._conversation) == 2
-    #     assert user.oversized == False
 
     #  Tests that the is_stale property returns True when the last message was sent more than 6 hours ago
     def test_is_stale_property(self):

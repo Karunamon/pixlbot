@@ -1,35 +1,52 @@
+from collections import namedtuple
 from datetime import datetime, timedelta
 from hashlib import sha256
 from typing import List, Dict, Optional
 
 from util.souls import Soul, SOUL_PROMPT
 
+import tiktoken
 
+Model = namedtuple(
+    "Model", "model max_tokens temperature", defaults=("gpt-4", 512, 0.5)
+)
 class GPTUser:
     __slots__ = [
         "id",
         "name",
-        "namehash",
+        "idhash",
         "_conversation",
         "last",
         "staleseen",
         "_soul",
         "telepathy",
+        "model",
+        "_encoding",
     ]
     id: int
     name: str
-    namehash: str
+    idhash: str
     _conversation: List[Dict[str, str]]
     last: datetime
     stale: bool
     staleseen: bool
     _soul: Optional[Soul]
     telepathy: bool
+    model: Model
+    _encoding: tiktoken.Encoding
 
-    def __init__(self, uid: int, uname: str, sysprompt: str, suffix: bool = True):
+    # noinspection PyArgumentList
+    def __init__(
+        self,
+        uid: int,
+        uname: str,
+        sysprompt: str,
+        suffix: bool = True,
+        model: Model = Model(),
+    ):
         self.id = uid
         self.name = uname
-        self.namehash = sha256(str(uid).encode("utf-8")).hexdigest()
+        self.idhash = sha256(str(uid).encode("utf-8")).hexdigest()
         self.staleseen = False
         prompt_suffix = (
             f" The user's name is {self.name} and it should be used wherever possible."
@@ -43,6 +60,8 @@ class GPTUser:
         self.last = datetime.utcnow()
         self._soul = None
         self.telepathy = False
+        self.model = model
+        self._encoding = tiktoken.encoding_for_model(model.model)
 
     @property
     def conversation(self):
@@ -88,11 +107,13 @@ class GPTUser:
 
     @property
     def _conversation_len(self):
-        cl = 0
         if self.conversation:
-            for entry in self.conversation:
-                cl += len(entry["content"])
-        return cl
+            return sum(
+                len(self._encoding.encode(entry["content"]))
+                for entry in self.conversation
+            )
+        else:
+            return 0
 
     def push_conversation(self, utterance: dict[str, str], copy=False):
         """Append the given line of dialogue to this conversation"""
