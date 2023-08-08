@@ -167,7 +167,7 @@ class ChatGPT(commands.Cog):
                 if gu.is_stale:
                     response = (
                         "*This conversation is pretty old so the next time you talk to me, it will be a fresh "
-                        "start. Please take this opportunity to save our conversation using the /ai save commands "
+                        "start. Please take this opportunity to save our conversation using the /ai save command "
                         "if you wish, or use /ai continue to keep this conversation going.*\n\n"
                         + response
                     )
@@ -202,12 +202,16 @@ class ChatGPT(commands.Cog):
         ),
     ):
         user_id = ctx.author.id
+        user_name = ctx.author.display_name
         self.users[user_id] = GPTUser(
             user_id,
-            ctx.author.display_name,
-            f"{system_prompt}" if system_prompt else self.config["system_prompt"],
+            user_name,
+            system_prompt if system_prompt else self.config["system_prompt"],
         )
-        await ctx.respond("Your conversation history has been reset.", ephemeral=True)
+        response = "Your conversation history has been reset."
+        if system_prompt:
+            response += f"\nSystem prompt set to: {system_prompt}"
+        await ctx.respond(response, ephemeral=True)
 
     @gpt.command(
         name="continue",
@@ -216,17 +220,12 @@ class ChatGPT(commands.Cog):
     )
     async def continue_conversation(self, ctx):
         user_id = ctx.author.id
-        if user_id not in self.users:
+        if not self.users.get(user_id):
             await ctx.respond(
                 "You have no active conversation to continue.", ephemeral=True
             )
             return
-
-        gu = self.users[user_id]
-        gu.staleseen = False
-        gu.last = datetime.utcnow()
-        self.users[user_id] = gu
-
+        self.users[user_id].freshen()
         await ctx.respond("Your conversation has been resumed.", ephemeral=True)
 
     @gpt.command(

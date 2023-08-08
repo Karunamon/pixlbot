@@ -108,6 +108,11 @@ class GPTUser:
         self.conversation = self._conversation  # Trigger the setter
         return p
 
+    def freshen(self):
+        """Clear the stale seen flag and set the last message time to now"""
+        self.staleseen = False
+        self.last = datetime.utcnow()
+
 
 MAX_LENGTH = 4097
 MAX_TOKENS = 512
