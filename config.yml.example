@@ -8,11 +8,13 @@ system:
     - cogs.yoink
     - cogs.ftime
     - cogs.roller
-    - cogs.chatgpt
+    #- cogs.chatgpt
     #- cogs.roleconcat
     #- cogs.bonk
   admin_roles:
     - Moderator
+  guilds:
+    - Insert your server ID here
 RandomNowPlaying:
   intervalmin: 60
   intervalmax: 900
@@ -23,13 +25,18 @@ RandomNowPlaying:
     - Megaman Battle Network
 
 Bonk:
-  709655247357739048:
-    channel: 778310784450691142
-    sticker: 943515690235752459
+#  709655247357739048:
+#    channel: 778310784450691142
+#    sticker: 943515690235752459
 
 ChatGPT:
   api_key: 0
-  model_name: gpt-3.5-turbo
-  system_prompt:  "You are a helpful assistant."
+  default:
+    model_name: gpt-3.5-turbo
+    system_prompt: You are a helpful assistant
+#  709655247357739048:
+#    model_name: gpt-4
+#    system_prompt:
+
 #sentry:
 #  init_url:
