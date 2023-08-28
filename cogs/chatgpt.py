@@ -448,6 +448,38 @@ class ChatGPT(commands.Cog):
         )
         await ctx.respond(embed=help_embed, ephemeral=True)
 
+    @gpt.command(
+        name="toggle_flags",
+        description="Toggles user flags on/off",
+        guild_ids=util.guilds,
+    )
+    async def toggle_flags(
+        self,
+        ctx,
+        flag: str = Option(
+            description="The flag to toggle",
+            choices=UserConfig.__members__.keys(),
+            required=True,
+        ),
+    ):
+        gu = self.get_user_from_context(ctx)
+
+        try:
+            flag_to_toggle = UserConfig[flag.upper()]
+        except KeyError:
+            await ctx.respond(f"Unknown flag: {flag}", ephemeral=True)
+            return
+
+        if gu.config & flag_to_toggle:
+            gu.config &= ~flag_to_toggle  # If the flag is set, unset it
+        else:
+            gu.config |= flag_to_toggle  # If the flag is not set, set it
+
+        self.users[gu.id] = gu
+        await ctx.respond(
+            f"{flag} has been set {bool(gu.config & flag_to_toggle)}.", ephemeral=True
+        )
+
 
 def setup(bot):
     bot.add_cog(ChatGPT(bot))
