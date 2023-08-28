@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from hashlib import sha256
 
 from util.souls import Soul
-from util.chatgpt import GPTUser
+from util.chatgpt import GPTUser, UserConfig
 
 
 class TestGPTUser:
@@ -21,7 +21,7 @@ class TestGPTUser:
         assert isinstance(user.last, datetime)
         assert user.staleseen is False
         assert user._soul is None
-        assert user.telepathy is False
+        assert not UserConfig.TELEPATHY & user.config
 
     #  Tests that the conversation history is properly formatted
     def test_format_conversation(self):
@@ -50,7 +50,10 @@ class TestGPTUser:
     #  Tests that the oversized property returns True when the conversation history exceeds the maximum length
     def test_oversized_property(self):
         user = GPTUser(1, "John", "Hello")
-        message = {"role": "user", "content": "a" * 50}
+        message = {
+            "role": "user",
+            "content": "Lorem ipsum dolor sit amet, consectetur adipiscing elit " * 50,
+        }
         for i in range(100):
             user.push_conversation(message)
         assert user.oversized is True

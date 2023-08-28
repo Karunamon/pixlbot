@@ -9,10 +9,8 @@ from discord.commands import SlashCommandGroup, Option
 from discord.ext import commands
 
 import util
-from util.chatgpt import GPTUser, MAX_LENGTH
+from util.chatgpt import GPTUser, UserConfig, ConversationLine, Model
 from util.souls import Soul, REMEMBRANCE_PROMPT
-
-MAX_MESSAGE_LENGTH = 2000
 
 
 class ChatGPT(commands.Cog):
@@ -25,13 +23,21 @@ class ChatGPT(commands.Cog):
         openai.api_key = self.config["api_key"]
         bot.logger.info("ChatGPT integration initialized")
 
-    async def send_to_chatgpt(
-        self, messages: Optional[List[dict]], user: GPTUser
-    ) -> Optional[str]:
+    async def send_to_chatgpt(self, user, conversation=None) -> Optional[str]:
+        """Sends a conversation to OpenAI for chat completion and returns what the model said in reply. The model
+        details will be read from the provided GPTUser. If a conversation is provided, it will be sent to the model.
+        Otherwise, the conversation will be read from the user object.
+        :param conversation: A specific conversation to be replied to, rather than the user's conversation
+        :type conversation: List[ConversationLine] or None
+        :param GPTUser user: The user object associated with this conversation
+        :return:
+        """
         try:
             response = await ChatCompletion.acreate(
-                **user.model._asdict(),  # Name, max_tokens, temperature
-                messages=messages or user.conversation,
+                model=user.model.model,
+                max_tokens=user.model.max_tokens,
+                temperature=user.model.temperature,
+                messages=conversation or user.conversation,
                 n=1,
                 stop=None,
                 user=user.idhash,
@@ -44,6 +50,32 @@ class ChatGPT(commands.Cog):
     def remove_bot_mention(self, content: str) -> str:
         mention = self.bot.user.mention
         return content.replace(mention, "").strip()
+
+    def get_user_from_context(self, context, force_new=False, **kwargs) -> GPTUser:
+        """Returns a new or existing GPTUser based on the `author` of the provided context.
+        Generally, you should be using this rather than reaching directly into `self.users`
+
+        :param context: Something with an .author.id property that resolves to a Discord user ID
+        :type context: discord.Message or discord.ApplicationContext
+        :param force_new: If true, force creation of a new user object even if one already exists in `self.users`
+        :param kwargs:
+             sysprompt str: Overrides the system prompt for a new user. Implies `force_new`
+        """
+        uid = context.author.id
+        if context.guild:
+            config = self.config.get(context.guild.id, self.config["default"])
+        else:
+            config = self.config["default"]
+        if uid in self.users and not force_new:
+            return self.users[uid]
+        else:
+            sysprompt = kwargs.pop("sysprompt", config["system_prompt"])
+            return GPTUser(
+                uid=uid,
+                uname=context.author.display_name,
+                sysprompt=sysprompt or config["system_prompt"],
+                model=Model(config["model_name"]),
+            )
 
     def should_reply(self, message: discord.Message) -> bool:
         """Determine whether the given message should be replied to. TL;DR: DON'T reply to system messages,
@@ -69,6 +101,10 @@ class ChatGPT(commands.Cog):
             return False
 
     def copy_public_reply(self, message: discord.Message):
+        """Helper function for dereferencing and copying the content of another user's bot reply. This allows for
+        reasonable replies should a user reply to a message directed at another user since conversations are usually
+        isolated.
+        """
         if message.reference:
             replied_to = message.reference.resolved
             if replied_to and replied_to.author == self.bot.user:
@@ -79,32 +115,21 @@ class ChatGPT(commands.Cog):
                     self.users[message.author.id].push_conversation(last_bot_msg, True)
 
     @staticmethod
-    async def reply(
-        message: discord.Message, content: str, em: Optional[discord.Embed]
-    ):
-        """Replies to the given Message depending on its type. Do a full reply and
-        mention the author if the message was sent in public, or just send to the
-        channel if it was a direct message or thread."""
-        while len(content) > 0:
-            # If message is too large, find the last newline before the limit
-            if len(content) > MAX_MESSAGE_LENGTH:
-                split_index = content[:MAX_MESSAGE_LENGTH].rfind("\n")
-                # If no newline is found, just split at the max length
-                if split_index == -1:
-                    split_index = MAX_MESSAGE_LENGTH
-            else:
-                split_index = len(content)
-
-            chunk = content[:split_index]
-            # Remove the chunk from the original content
-            content = content[split_index:].lstrip()
-
-            # Send chunk
+    async def reply(message, content, em):
+        """Replies to the given `Message` depending on its type, and automatically break up the replies to stay under
+        Discord's maximum message length. Does a full reply and mentions the author if the message was sent in public,
+        or just sends to the channel if it was a direct message or thread.
+        :param discord.Message message: The message to reply to
+        :param str content: Text to send as a reply
+        :param em: An embed to send with the content. If `content` had to be split, it gets sent with the first message.
+        :type em: discord.Embed or None
+        """
+        for chunk in util.split_content(content):
             if isinstance(message.channel, (discord.DMChannel, discord.Thread)):
                 await message.channel.send(chunk, embed=em)
             else:
                 await message.reply(chunk, embed=em)
-            em = None  # Only send the embed with the first chunk
+            em = None
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -114,23 +139,20 @@ class ChatGPT(commands.Cog):
         self.copy_public_reply(message)
 
         user_id = message.author.id
-        gu = self.users.get(user_id) or GPTUser(
-            user_id, message.author.display_name, self.config["system_prompt"]
-        )
+        gu = self.get_user_from_context(message)
 
         message.content = self.remove_bot_mention(message.content)
         if gu.is_stale:
             if gu.staleseen:
-                del self.users[user_id]
-                gu = GPTUser(
-                    user_id, message.author.display_name, self.config["system_prompt"]
-                )
+                gu = self.get_user_from_context(message, True)
+
         gu.push_conversation({"role": "user", "content": message.content})
         if gu.soul:
+            # noinspection PyProtectedMember
             gu.push_conversation(
                 {
                     "role": "system",
-                    "content": REMEMBRANCE_PROMPT.format(**dict(gu.soul)),
+                    "content": REMEMBRANCE_PROMPT.format(**gu.soul._asdict()),
                 }
             )
         overflow = []
@@ -138,8 +160,10 @@ class ChatGPT(commands.Cog):
             overflow.append(gu.pop_conversation(0))
 
         async with message.channel.typing():
-            response = await self.send_to_chatgpt(None, gu)
+            response = await self.send_to_chatgpt(gu)
             telembed = None
+            warnings = ""
+            stats = ""
             if gu.soul:
                 response, telepathy = util.souls.format_from_soul(response)
                 telembed = (
@@ -151,7 +175,7 @@ class ChatGPT(commands.Cog):
                         thought=telepathy[1],
                         analysis=telepathy[2],
                     )
-                    if gu.telepathy
+                    if gu.config & UserConfig.TELEPATHY
                     else None
                 )
 
@@ -164,24 +188,28 @@ class ChatGPT(commands.Cog):
                 ]  # Throw out any system prompts but the first one
                 gu.push_conversation({"role": "assistant", "content": response})
                 if gu.is_stale:
-                    response = (
-                        "*This conversation is pretty old so the next time you talk to me, it will be a fresh "
-                        "start. Please take this opportunity to save our conversation using the /ai save command "
-                        "if you wish, or use /ai continue to keep this conversation going.*\n\n"
-                        + response
-                    )
+                    if gu.config & UserConfig.TERSEWARNINGS:
+                        warnings += "⏰❗ "
+                    else:
+                        warnings += (
+                            "*This conversation is pretty old so the next time you talk to me, it will be a fresh "
+                            "start. Please take this opportunity to save our conversation using the /ai save command "
+                            "if you wish, or use /ai continue to keep this conversation going.*\n"
+                        )
                     gu.staleseen = True
                 if overflow:
-                    response = (
-                        "*Our conversation is getting too long so I had to forget some of the earlier context. You "
-                        "may wish to reset and/or save our conversation using the /ai commands if it is no "
-                        "longer useful.*\n\n" + response
-                    )
+                    if gu.config & UserConfig.TERSEWARNINGS:
+                        warnings += "📏❗ "
+                    else:
+                        warnings += (
+                            "*Our conversation is getting too long so I had to forget some of the earlier context. You "
+                            "may wish to reset and/or save our conversation using the /ai commands if it is no "
+                            "longer useful.*\n"
+                        )
                     gu.conversation = overflow + gu.conversation
-                if gu.config.SHOWSTATS:
-                    response = (
-                        response
-                        + f"\n\n*📏{gu._conversation_len}/{MAX_LENGTH}{'(❗)' if gu.oversized else ''}  "
+                if gu.config & UserConfig.SHOWSTATS:
+                    stats = (
+                        f"\n\n*📏{gu.conversation_len}/{gu.model.max_context}{'(❗)' if gu.oversized else ''}  "
                         f"{'👼' + gu.soul.name if gu.soul else ''}  "
                         f"🗣️{gu.model.model}  "
                         f"*"
@@ -189,10 +217,8 @@ class ChatGPT(commands.Cog):
             else:
                 response = "Sorry, can't talk to OpenAI right now."
                 gu.pop_conversation()  # GPT didn't get the last thing the user said, so forget it
-                if gu.soul:
-                    gu.pop_conversation()  # We have to clear the remembrance prompt as well
+            response = f"{warnings}\n{response}\n{stats}"
             self.users[user_id] = gu
-
             await self.reply(message, response, telembed)
 
     @gpt.command(
@@ -208,13 +234,9 @@ class ChatGPT(commands.Cog):
             default=None,
         ),
     ):
+        gu = self.get_user_from_context(ctx, True, sysprompt=system_prompt)
         user_id = ctx.author.id
-        user_name = ctx.author.display_name
-        self.users[user_id] = GPTUser(
-            user_id,
-            user_name,
-            system_prompt if system_prompt else self.config["system_prompt"],
-        )
+        self.users[user_id] = gu
         response = "Your conversation history has been reset."
         if system_prompt:
             response += f"\nSystem prompt set to: {system_prompt}"
@@ -248,7 +270,7 @@ class ChatGPT(commands.Cog):
             )
             return
 
-        gu = self.users[user_id]
+        gu = self.get_user_from_context(ctx)
         bot_display_name = self.bot.user.display_name
         formatted_conversation = gu.format_conversation(bot_display_name)
 
@@ -281,7 +303,7 @@ class ChatGPT(commands.Cog):
             )
             return
 
-        gu = self.users[user_id]
+        gu = self.get_user_from_context(ctx)
         bot_display_name = self.bot.user.display_name
         formatted_conversation = gu.format_conversation(bot_display_name)
 
@@ -322,9 +344,7 @@ class ChatGPT(commands.Cog):
             default=None,
         ),
     ):
-        gu = self.users.get(ctx.author.id) or GPTUser(
-            ctx.author.id, ctx.author.name, ""
-        )
+        gu = self.get_user_from_context(ctx)
         if ctx.channel.is_nsfw():
             await ctx.respond(
                 "Sorry, can't operate in NSFW channels (OpenAI TOS)", ephemeral=True
@@ -354,7 +374,7 @@ class ChatGPT(commands.Cog):
             )
         )
 
-        conversation = [
+        conversation: List[ConversationLine] = [
             {
                 "role": "system",
                 "content": sysprompt,
@@ -365,7 +385,9 @@ class ChatGPT(commands.Cog):
             loading_message = await ctx.send(
                 f"Now generating summary of the last {num_messages} messages…"
             )
-            summary = await self.send_to_chatgpt(conversation, gu)
+            # noinspection PyTypeChecker
+            # This is a lint bug
+            summary = await self.send_to_chatgpt(gu, conversation)
             if summary:
                 await loading_message.edit(
                     content=f"Summary of the last {num_messages} messages:\n\n{summary}"
@@ -387,16 +409,13 @@ class ChatGPT(commands.Cog):
         telepathy: discord.Option(bool, default=True, description="Show thinking"),
     ):
         try:
-            y = yaml.safe_load(open(f"cores/{core.split(' ')[0]}"))
-            s = Soul(**y)
-            # noinspection PyTypeChecker
-            ca: discord.Member = (
-                ctx.author
-            )  # We know this is a Member since this is a slash command
-            gu = self.users.get(ca.id) or GPTUser(ca.id, ca.nick, "")
-            gu.soul = s
-            gu.telepathy = telepathy
-            self.users[ca.id] = gu
+            with open(f"cores/{core.split(' ')[0]}") as file:
+                core_data = yaml.safe_load(file)
+            loaded_soul = Soul(**core_data)
+            gu = self.get_user_from_context(ctx, True)
+            gu.soul = loaded_soul
+            gu.config |= UserConfig.TELEPATHY if telepathy else gu.config
+            self.users[gu.id] = gu
         except Exception as e:
             await ctx.respond(f"Failed to load {core}: {repr(e)}", ephemeral=True)
             return
@@ -408,14 +427,14 @@ class ChatGPT(commands.Cog):
         help_embed.description = f"""I can use AI to hold a conversation. Just @mention me! I also accept DMs if you 
         are in a server with me.
 
-Conversations are specific to each person and are not stored. Additionally, openai has committed to deleting 
-conversations after 30 days and not using them to further train the AI. The bot will only see text that specifically 
-mentions it.
-
-Conversations timeout after six hours and will be reset after that time unless the continue command is used.
-
-Important commands (Others are in the / pop-up, these require additional explanation):
-"""
+        Conversations are specific to each person and are not stored. Additionally, openai has committed to deleting 
+        conversations after 30 days and not using them to further train the AI. The bot will only see text that 
+        specifically mentions it.
+        
+        Conversations timeout after six hours and will be reset after that time unless the continue command is used.
+        
+        Important commands (Others are in the / pop-up, these require additional explanation):
+        """
         help_embed.add_field(
             name="load_core",
             value="EXPERIMENTAL: load a soul core to have a conversation with a specific personality. Resets your "

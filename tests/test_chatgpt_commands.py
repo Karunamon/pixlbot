@@ -14,7 +14,15 @@ class TestChatGPTCommands:
     @pytest.fixture
     def bot(self):
         bot = MagicMock()
-        bot.config = {"ChatGPT": {"api_key": "foo", "system_prompt": "System prompt"}}
+        bot.config = {
+            "ChatGPT": {
+                "api_key": "foo",
+                "default": {
+                    "system_prompt": "System prompt",
+                    "model_name": "gpt-3.5-turbo",
+                },
+            }
+        }
         bot.user = MagicMock()
         bot.user.display_name = "Bot"
         return bot
@@ -139,7 +147,7 @@ class TestChatGPTCommands:
         await cog.summarize_chat(ctx, 1, "")
 
         cog.send_to_chatgpt.assert_called_once()
-        assert cog.send_to_chatgpt.call_args[0][0] == [
+        assert cog.send_to_chatgpt.call_args[0][1] == [
             {
                 "role": "system",
                 "content": "The following is a conversation between various people in a Discord chat. It is "

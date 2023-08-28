@@ -1,20 +1,32 @@
-from collections import namedtuple
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from hashlib import sha256
-from typing import List, Dict, Optional
+from typing import List, Optional, TypedDict, Literal
 from enum import Flag, auto
 
 from util.souls import Soul, SOUL_PROMPT
 
 import tiktoken
 
-Model = namedtuple(
-    "Model", "model max_tokens temperature", defaults=("gpt-4", 512, 0.5)
-)
+
+class ConversationLine(TypedDict):
+    role: Literal["user", "system", "assistant"]
+    content: str
 
 
 class UserConfig(Flag):
     SHOWSTATS = auto()
+    TELEPATHY = auto()
+    NAMESUFFIX = auto()
+    TERSEWARNINGS = auto()
+
+
+@dataclass
+class Model:
+    model: str = "gpt-3.5-turbo"
+    max_tokens: int = 768
+    temperature: float = 0.5
+    max_context: int = 4097
 
 
 class GPTUser:
@@ -26,52 +38,45 @@ class GPTUser:
         "last",
         "staleseen",
         "_soul",
-        "telepathy",
-        "model",
+        "_model",
         "config",
         "_encoding",
+        "_conversation_len",
     ]
     id: int
     name: str
     idhash: str
-    _conversation: List[Dict[str, str]]
+    _conversation: List[ConversationLine]
     last: datetime
-    stale: bool
     staleseen: bool
     _soul: Optional[Soul]
-    telepathy: bool
-    model: Model
+    _model: Model
     config: UserConfig
     _encoding: tiktoken.Encoding
+    _conversation_len: int
 
-    # noinspection PyArgumentList
-    def __init__(
-        self,
-        uid: int,
-        uname: str,
-        sysprompt: str,
-        suffix: bool = True,
-        model: Model = Model(),
-    ):
+    def __init__(self, uid: int, uname: str, sysprompt: str, model: Model = Model()):
         self.id = uid
         self.name = uname
         self.idhash = sha256(str(uid).encode("utf-8")).hexdigest()
         self.staleseen = False
+        self.config = UserConfig.SHOWSTATS | UserConfig.NAMESUFFIX
         prompt_suffix = (
             f" The user's name is {self.name} and it should be used wherever possible."
         )
         self._conversation = [
             {
                 "role": "system",
-                "content": sysprompt + prompt_suffix if suffix else sysprompt,
+                "content": sysprompt + prompt_suffix
+                if self.config & UserConfig.NAMESUFFIX
+                else sysprompt,
             }
         ]
         self.last = datetime.utcnow()
         self._soul = None
-        self.telepathy = False
-        self.model = model
-        self.config = UserConfig.SHOWSTATS
+        self._model = model
         self._encoding = tiktoken.encoding_for_model(model.model)
+        self._conversation_len = self._calculate_conversation_len()
 
     @property
     def conversation(self):
@@ -81,6 +86,9 @@ class GPTUser:
     def conversation(self, value):
         self._conversation = value
         self.last = datetime.utcnow()
+        # It would be more efficient to increment/decrement the length as needed, but we have too many use cases where
+        # we need to directly modify the conversation, so recalculating on every update is an intentional choice here.
+        self._conversation_len = self._calculate_conversation_len()
 
     def format_conversation(self, bot_name: str) -> str:
         """Returns a pretty-printed version of user's conversation history with system prompts removed"""
@@ -102,7 +110,10 @@ class GPTUser:
 
     @property
     def oversized(self):
-        return self._conversation_len + MAX_TOKENS >= MAX_LENGTH
+        """
+        Returns if the current conversation is or is about to be too large to fit into the current model's context
+        """
+        return self.conversation_len + self.model.max_tokens >= self.model.max_context
 
     @property
     def soul(self):
@@ -115,35 +126,45 @@ class GPTUser:
             {"role": "system", "content": SOUL_PROMPT.format(**new_soul._asdict())}
         ]
 
-    @property
-    def _conversation_len(self):
-        if self.conversation:
+    def _calculate_conversation_len(self) -> int:
+        if self._conversation:
             return sum(
                 len(self._encoding.encode(entry["content"]))
-                for entry in self.conversation
+                for entry in self._conversation
             )
         else:
             return 0
 
-    def push_conversation(self, utterance: dict[str, str], copy=False):
-        """Append the given line of dialogue to this conversation"""
+    def push_conversation(self, utterance: ConversationLine, copy=False):
+        """Append the given line of dialogue to this user's conversation"""
         if copy:
             self._conversation.insert(-1, utterance)
         else:
             self._conversation.append(utterance)
-        self.conversation = self._conversation  # Trigger the setter
+        self._conversation_len += len(self._encoding.encode(utterance["content"]))
 
-    def pop_conversation(self, index: int = -1):
-        """Pop lines of dialogue from this conversation"""
-        p = self._conversation.pop(index)
-        self.conversation = self._conversation  # Trigger the setter
-        return p
+    def pop_conversation(self, index: int = -1) -> ConversationLine:
+        """Pop lines of dialogue from this user's conversation"""
+        popped_item = self._conversation.pop(index)
+        self._conversation_len -= len(self._encoding.encode(popped_item["content"]))
+        return popped_item
+
+    @property
+    def conversation_len(self):
+        """Return the length of this user's conversation in tokens"""
+        return self._conversation_len
 
     def freshen(self):
         """Clear the stale seen flag and set the last message time to now"""
         self.staleseen = False
         self.last = datetime.utcnow()
 
+    @property
+    def model(self):
+        return self._model
 
-MAX_LENGTH = 4097
-MAX_TOKENS = 512
+    @model.setter
+    def model(self, new_model: Model):
+        self._encoding = tiktoken.encoding_for_model(new_model.model)
+        self._model = new_model
+        self._conversation_len = self._calculate_conversation_len()
