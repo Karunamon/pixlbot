@@ -229,7 +229,8 @@ class ChatGPT(commands.Cog):
     async def reset(
         self,
         ctx,
-        system_prompt: str = Option(
+        system_prompt: Option(
+            str,
             description="The system (initial) prompt for the new conversation",
             default=None,
         ),
@@ -336,10 +337,11 @@ class ChatGPT(commands.Cog):
     async def summarize_chat(
         self,
         ctx: discord.ApplicationContext,
-        num_messages: int = Option(
-            default=50, description="Number of messages to summarize"
+        num_messages: Option(
+            int, default=50, description="Number of messages to summarize"
         ),
-        prompt: str = Option(
+        prompt: Option(
+            str,
             description="Custom prompt to use for the summary (Actual chat is inserted after these words)",
             default=None,
         ),
@@ -405,8 +407,8 @@ class ChatGPT(commands.Cog):
     async def load_core(
         self,
         ctx: discord.ApplicationContext,
-        core: discord.Option(str, autocomplete=util.souls.scan_cores, required=True),
-        telepathy: discord.Option(bool, default=True, description="Show thinking"),
+        core: Option(str, autocomplete=util.souls.scan_cores, required=True),
+        telepathy: Option(bool, default=True, description="Show thinking"),
     ):
         try:
             with open(f"cores/{core.split(' ')[0]}") as file:
@@ -456,7 +458,8 @@ class ChatGPT(commands.Cog):
     async def toggle_flags(
         self,
         ctx,
-        flag: str = Option(
+        flag: Option(
+            str,
             description="The flag to toggle",
             choices=UserConfig.__members__.keys(),
             required=True,
@@ -464,11 +467,7 @@ class ChatGPT(commands.Cog):
     ):
         gu = self.get_user_from_context(ctx)
 
-        try:
-            flag_to_toggle = UserConfig[flag.upper()]
-        except KeyError:
-            await ctx.respond(f"Unknown flag: {flag}", ephemeral=True)
-            return
+        flag_to_toggle = UserConfig[flag.upper()]
 
         if gu.config & flag_to_toggle:
             gu.config &= ~flag_to_toggle  # If the flag is set, unset it
