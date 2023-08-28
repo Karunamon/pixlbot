@@ -17,6 +17,7 @@ pytest = "*"
 pytest-mock = "*"
 pytest-asyncio = "*"
 black = "*"
+coverage = "*"
 
 [requires]
 python_version = "3.9"
