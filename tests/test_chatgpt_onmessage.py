@@ -1,16 +1,13 @@
 from unittest.mock import MagicMock
 
 import discord
-from cogs import chatgpt
-
-# Dependencies:
-# pip install pytest-mock
 import pytest
 
 from cogs.chatgpt import ChatGPT
 from util.chatgpt import GPTUser
 
 
+# noinspection PyUnresolvedReferences
 class TestOnMessage:
     #  Test that the method correctly handles the case when a user sends a message that should be replied to.
     @pytest.fixture
@@ -24,7 +21,7 @@ class TestOnMessage:
     @pytest.fixture
     def cog(self, bot):
         cog = ChatGPT(bot)
-        cog.users = {123: GPTUser(123, "User", "My prompt")}
+        cog.users = {123: GPTUser(123, "User", "My prompt", None)}
         return cog
 
     @pytest.mark.asyncio
@@ -34,8 +31,8 @@ class TestOnMessage:
         message.content = "Hello"
         message.channel.typing.return_value.__aenter__ = mocker.AsyncMock()
         message.channel.typing.return_value.__aexit__ = mocker.AsyncMock()
-        gu = GPTUser(123, "TestUser", "System Prompt")
-        gu.push_conversation({"role": "user", "content": "Hello"})
+        gu = GPTUser(123, "TestUser", "System Prompt", None)
+        # gu.push_conversation({"role": "user", "content": "Hello"})
         cog.should_reply = mocker.MagicMock(return_value=True)
         cog.copy_public_reply = mocker.MagicMock()
         cog.get_user_from_context = mocker.MagicMock(return_value=gu)
@@ -51,5 +48,5 @@ class TestOnMessage:
         cog.remove_bot_mention.assert_called_once_with("Hello")
         cog.send_to_chatgpt.assert_called_once_with(gu)
         cog.reply.assert_called_once_with(
-            message, "\nHi\n\n\n*📏20/4097    🗣️gpt-3.5-turbo  *", None
+            message, "\nHi\n\n\n*📏20/4097  🗣️gpt-3.5-turbo  📝Default  *", None
         )

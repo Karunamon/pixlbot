@@ -21,6 +21,9 @@ class UserConfig(Flag):
     TERSEWARNINGS = auto()
 
 
+DEFAULT_FLAGS = UserConfig.SHOWSTATS | UserConfig.NAMESUFFIX
+
+
 @dataclass
 class Model:
     model: str = "gpt-3.5-turbo"
@@ -42,6 +45,7 @@ class GPTUser:
         "config",
         "_encoding",
         "_conversation_len",
+        "prompt_info",
     ]
     id: int
     name: str
@@ -54,29 +58,39 @@ class GPTUser:
     config: UserConfig
     _encoding: tiktoken.Encoding
     _conversation_len: int
+    prompt_info: Optional[str]
 
-    def __init__(self, uid: int, uname: str, sysprompt: str, model: Model = Model()):
+    def __init__(
+        self,
+        uid: int,
+        uname: str,
+        sysprompt: str,
+        prompt_info: Optional[str],
+        model: Model = Model(),
+        config: UserConfig = DEFAULT_FLAGS,
+    ):
+        """
+        :param config: A UserConfig bitfield.
+        :param uid: The unique ID of the user (Usually a Discord snowflake).
+        :param uname: The username of the user.
+        :param sysprompt: The system prompt to be used for conversation generation.
+        :param prompt_info: A very short description of the system prompt.
+        :param model: The model object to be used for conversation generation.
+        """
         self.id = uid
         self.name = uname
         self.idhash = sha256(str(uid).encode("utf-8")).hexdigest()
         self.staleseen = False
-        self.config = UserConfig.SHOWSTATS | UserConfig.NAMESUFFIX
-        prompt_suffix = (
-            f" The user's name is {self.name} and it should be used wherever possible."
-        )
-        self._conversation = [
-            {
-                "role": "system",
-                "content": sysprompt + prompt_suffix
-                if self.config & UserConfig.NAMESUFFIX
-                else sysprompt,
-            }
-        ]
+        self.config = config
+        self._conversation = [{"role": "system", "content": sysprompt}]
         self.last = datetime.utcnow()
         self._soul = None
+        self.prompt_info = prompt_info
         self._model = model
         self._encoding = tiktoken.encoding_for_model(model.model)
         self._conversation_len = self._calculate_conversation_len()
+        if UserConfig.NAMESUFFIX in config:
+            self._add_namesuffix()
 
     @property
     def conversation(self):
@@ -103,7 +117,8 @@ class GPTUser:
         return formatted_conversation
 
     @property
-    def is_stale(self):
+    def is_stale(self) -> bool:
+        """Check if the user conversation is stale (More than six hours old)"""
         current_time = datetime.utcnow()
         age = current_time - self.last
         return age > timedelta(hours=6)
@@ -125,6 +140,7 @@ class GPTUser:
         self.conversation = [
             {"role": "system", "content": SOUL_PROMPT.format(**new_soul._asdict())}
         ]
+        self.prompt_info = "Soul"
 
     def _calculate_conversation_len(self) -> int:
         if self._conversation:
@@ -167,4 +183,14 @@ class GPTUser:
     def model(self, new_model: Model):
         self._encoding = tiktoken.encoding_for_model(new_model.model)
         self._model = new_model
+        self._conversation_len = self._calculate_conversation_len()
+
+    def _add_namesuffix(self):
+        """Apply the user's name to the end of the first system prompt."""
+        self.conversation[0][
+            "content"
+        ] += (
+            f"\nThe user's name is {self.name} and it should be used wherever possible."
+        )
+        # This didn't trigger the setter for conversation, manually update length
         self._conversation_len = self._calculate_conversation_len()

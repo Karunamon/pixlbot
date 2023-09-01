@@ -1,4 +1,5 @@
 import io
+from contextlib import contextmanager
 from typing import List, Optional, Dict
 
 import discord
@@ -7,10 +8,16 @@ import yaml
 from openai import ChatCompletion
 from discord.commands import SlashCommandGroup, Option
 from discord.ext import commands
+from blitzdb import Document, FileBackend
 
 import util
-from util.chatgpt import GPTUser, UserConfig, ConversationLine, Model
+from util.chatgpt import GPTUser, UserConfig, ConversationLine, Model, DEFAULT_FLAGS
 from util.souls import Soul, REMEMBRANCE_PROMPT
+
+
+class PersistentUser(Document):
+    class Meta(Document.Meta):
+        primary_key = "uid"
 
 
 class ChatGPT(commands.Cog):
@@ -20,8 +27,20 @@ class ChatGPT(commands.Cog):
         self.bot = bot
         self.config = bot.config["ChatGPT"]
         self.users: Dict[int, GPTUser] = {}
+        self.backend = FileBackend("db")
+        self.backend.autocommit = True
         openai.api_key = self.config["api_key"]
         bot.logger.info("ChatGPT integration initialized")
+
+    @contextmanager
+    def get_persistent_userdata(self, userid: int) -> PersistentUser:
+        """Searches for a user's persistent data in the DB by id, returning it if found, or a new minimal set if not."""
+        try:
+            pu = self.backend.get(PersistentUser, {"uid": userid})
+        except PersistentUser.DoesNotExist:
+            pu = PersistentUser({"uid": userid, "config": DEFAULT_FLAGS.value})
+        yield pu
+        self.backend.save(pu)
 
     async def send_to_chatgpt(self, user, conversation=None) -> Optional[str]:
         """Sends a conversation to OpenAI for chat completion and returns what the model said in reply. The model
@@ -30,7 +49,7 @@ class ChatGPT(commands.Cog):
         :param conversation: A specific conversation to be replied to, rather than the user's conversation
         :type conversation: List[ConversationLine] or None
         :param GPTUser user: The user object associated with this conversation
-        :return:
+        :return: The response from the model, or none if there was a problem
         """
         try:
             response = await ChatCompletion.acreate(
@@ -59,23 +78,28 @@ class ChatGPT(commands.Cog):
         :type context: discord.Message or discord.ApplicationContext
         :param force_new: If true, force creation of a new user object even if one already exists in `self.users`
         :param kwargs:
-             sysprompt str: Overrides the system prompt for a new user. Implies `force_new`
+             sysprompt str: Overrides the system prompt for a new user.
+             promptinfo str: A short description of the provided system prompt
         """
         uid = context.author.id
         if context.guild:
-            config = self.config.get(context.guild.id, self.config["default"])
+            server_config = self.config.get(context.guild.id, self.config["default"])
         else:
-            config = self.config["default"]
-        if uid in self.users and not force_new:
-            return self.users[uid]
-        else:
-            sysprompt = kwargs.pop("sysprompt", config["system_prompt"])
-            return GPTUser(
-                uid=uid,
-                uname=context.author.display_name,
-                sysprompt=sysprompt or config["system_prompt"],
-                model=Model(config["model_name"]),
-            )
+            server_config = self.config["default"]
+        sysprompt = kwargs.pop("sysprompt", None)
+        promptinfo = kwargs.pop("promptinfo", None)
+        gu = self.users.get(uid)
+        if (not gu) or force_new or sysprompt:
+            with self.get_persistent_userdata(uid) as pu:
+                gu = GPTUser(
+                    uid=uid,
+                    uname=context.author.display_name,
+                    sysprompt=sysprompt or server_config["system_prompt"],
+                    prompt_info=promptinfo,
+                    model=Model(server_config["model_name"]),
+                    config=UserConfig(pu.config),
+                )
+        return gu
 
     def should_reply(self, message: discord.Message) -> bool:
         """Determine whether the given message should be replied to. TL;DR: DON'T reply to system messages,
@@ -210,8 +234,9 @@ class ChatGPT(commands.Cog):
                 if gu.config & UserConfig.SHOWSTATS:
                     stats = (
                         f"\n\n*📏{gu.conversation_len}/{gu.model.max_context}{'(❗)' if gu.oversized else ''}  "
-                        f"{'👼' + gu.soul.name if gu.soul else ''}  "
+                        f"{'👼' + gu.soul.name + '  ' if gu.soul else ''}"
                         f"🗣️{gu.model.model}  "
+                        f"📝{'Default' if not gu.prompt_info else gu.prompt_info}  "
                         f"*"
                     )
             else:
@@ -235,7 +260,12 @@ class ChatGPT(commands.Cog):
             default=None,
         ),
     ):
-        gu = self.get_user_from_context(ctx, True, sysprompt=system_prompt)
+        gu = self.get_user_from_context(
+            ctx,
+            True,
+            sysprompt=system_prompt,
+            promptinfo="Custom" if system_prompt else None,
+        )
         user_id = ctx.author.id
         self.users[user_id] = gu
         response = "Your conversation history has been reset."
@@ -450,6 +480,7 @@ class ChatGPT(commands.Cog):
         )
         await ctx.respond(embed=help_embed, ephemeral=True)
 
+    # noinspection PyTypeHints
     @gpt.command(
         name="toggle_flags",
         description="Toggles user flags on/off",
@@ -466,8 +497,7 @@ class ChatGPT(commands.Cog):
         ),
     ):
         gu = self.get_user_from_context(ctx)
-
-        flag_to_toggle = UserConfig[flag.upper()]
+        flag_to_toggle = UserConfig[flag]
 
         if gu.config & flag_to_toggle:
             gu.config &= ~flag_to_toggle  # If the flag is set, unset it
@@ -475,9 +505,63 @@ class ChatGPT(commands.Cog):
             gu.config |= flag_to_toggle  # If the flag is not set, set it
 
         self.users[gu.id] = gu
+        with self.get_persistent_userdata(gu.id) as pu:
+            pu.config = gu.config.value
         await ctx.respond(
-            f"{flag} has been set {bool(gu.config & flag_to_toggle)}.", ephemeral=True
+            f"{flag} has been {'enabled' if gu.config & flag_to_toggle else 'disaled'}.",
+            ephemeral=True,
         )
+
+    @gpt.command(
+        name="show_flags",
+        description="Show your AI settings",
+        guild_ids=util.guilds,
+    )
+    async def show_flags(self, ctx):
+        gu = self.get_user_from_context(ctx)
+        out = f"```md\n# AI settings for {gu.name}:\n"
+        for k in UserConfig.__members__.keys():
+            f = UserConfig[k]  # FOO rather than UserConfig.FOO
+            out += f"{f.name}: {'enabled' if gu.config & f else 'disaled'}\n"
+        out += "```"
+        await ctx.respond(out, ephemeral=True)
+
+    @gpt.command(
+        name="translate",
+        description="Translate across languages",
+        guild_ids=util.guilds,
+    )
+    async def translate(
+        self,
+        ctx,
+        to_language: Option(str, "The language to translate to", required=True),
+        text: Option(str, "The text to be translated", required=True),
+        keep_going: Option(
+            bool,
+            "Stay in translation mode after translating line (warning: resets conversation)",
+            default=False,
+        ),
+    ):
+        await ctx.defer()
+        prompt = (
+            f"You are an expert translator, fluent in both English and {to_language}. "
+            f"Whenever the user says something, repeat it back to them, and then repeat it again in the {to_language} language."
+        )
+        gu = self.get_user_from_context(
+            ctx,
+            True,
+            sysprompt=prompt,
+            promptinfo=f"Translator: English -> {to_language}",
+        )
+        gu.push_conversation({"role": "user", "content": text})
+        async with ctx.channel.typing():
+            response = await self.send_to_chatgpt(gu)
+            if not response:
+                response = "Sorry, could not communicate with OpenAI. Please try again."
+                gu.pop_conversation()
+            await ctx.respond(response)
+            if keep_going:
+                self.users[ctx.author.id] = gu
 
 
 def setup(bot):

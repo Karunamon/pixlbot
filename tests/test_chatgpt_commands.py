@@ -30,7 +30,7 @@ class TestChatGPTCommands:
     @pytest.fixture
     def cog(self, bot):
         cog = ChatGPT(bot)
-        cog.users = {123: GPTUser(123, "User", "My prompt")}
+        cog.users = {123: GPTUser(123, "User", "My prompt", None)}
         return cog
 
     @pytest.fixture
