@@ -11,6 +11,8 @@ PyYAML = "*"
 aiohttp = "*"
 openai = "*"
 tiktoken = "~=0.4.0"
+dateparser = "*"
+pytz = "*"
 
 [dev-packages]
 pytest = "*"
