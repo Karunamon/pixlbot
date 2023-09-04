@@ -534,6 +534,7 @@ class ChatGPT(commands.Cog):
     async def translate(
         self,
         ctx,
+        from_language: Option(str, "The language to translate from", required=True),
         to_language: Option(str, "The language to translate to", required=True),
         text: Option(str, "The text to be translated", required=True),
         keep_going: Option(
@@ -544,14 +545,15 @@ class ChatGPT(commands.Cog):
     ):
         await ctx.defer()
         prompt = (
-            f"You are an expert translator, fluent in both English and {to_language}. "
-            f"Whenever the user says something, repeat it back to them, and then repeat it again in the {to_language} language."
+            f"You are an expert translator, fluent in both {from_language} and {to_language}. "
+            f"The user will say something in {from_language}, you should repeat it back to them, "
+            f"and then repeat it again in {to_language}."
         )
         gu = self.get_user_from_context(
             ctx,
             True,
             sysprompt=prompt,
-            promptinfo=f"Translator: English -> {to_language}",
+            promptinfo=f"Translator: {from_language} -> {to_language}",
         )
         gu.push_conversation({"role": "user", "content": text})
         async with ctx.channel.typing():
