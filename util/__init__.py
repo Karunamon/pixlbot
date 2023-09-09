@@ -25,6 +25,9 @@ def mkembed(kind: str, description: str, **kwargs) -> discord.Embed:
         description=description,
         color=discord_color_mapping[kind],
     )
+    f = kwargs.pop("footer", None)
+    if f:
+        e.set_footer(text=f)
     for k, v in kwargs.items():
         e.add_field(name=k, value=v)
     return e
