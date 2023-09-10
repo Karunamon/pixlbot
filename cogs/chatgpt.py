@@ -246,11 +246,7 @@ class ChatGPT(commands.Cog):
             self.users[user_id] = gu
             await self.reply(message, response, telembed)
 
-    @gpt.command(
-        name="reset",
-        description="Reset your conversation history with the bot",
-        guild_ids=util.guilds,
-    )
+    @gpt.command(guild_ids=util.guilds)
     async def reset(
         self,
         ctx,
@@ -260,6 +256,7 @@ class ChatGPT(commands.Cog):
             default=None,
         ),
     ):
+        """Reset your conversation history with the bot"""
         gu = self.get_user_from_context(
             ctx,
             True,
@@ -273,12 +270,9 @@ class ChatGPT(commands.Cog):
             response += f"\nSystem prompt set to: {system_prompt}"
         await ctx.respond(response, ephemeral=True)
 
-    @gpt.command(
-        name="continue",
-        description="Continue a stale conversation rather than resetting",
-        guild_ids=util.guilds,
-    )
+    @gpt.command(name="continue", guild_ids=util.guilds)
     async def continue_conversation(self, ctx):
+        """Continue a stale conversation rather than resetting"""
         user_id = ctx.author.id
         if not self.users.get(user_id):
             await ctx.respond(
@@ -288,12 +282,9 @@ class ChatGPT(commands.Cog):
         self.users[user_id].freshen()
         await ctx.respond("Your conversation has been resumed.", ephemeral=True)
 
-    @gpt.command(
-        name="show_conversation",
-        description="Show your current conversation with the bot",
-        guild_ids=util.guilds,
-    )
+    @gpt.command(guild_ids=util.guilds)
     async def show_conversation(self, ctx):
+        """Show your current conversation with the bot"""
         user_id = ctx.author.id
         if user_id not in self.users:
             await ctx.respond(
@@ -321,12 +312,9 @@ class ChatGPT(commands.Cog):
                 ephemeral=True,
             )
 
-    @gpt.command(
-        name="save_conversation",
-        description="Save your current conversation with the bot to a text file",
-        guild_ids=util.guilds,
-    )
+    @gpt.command(guild_ids=util.guilds)
     async def save_conversation(self, ctx):
+        """Save your current conversation with the bot to a text file"""
         user_id = ctx.author.id
         if user_id not in self.users:
             await ctx.respond(
@@ -359,11 +347,7 @@ class ChatGPT(commands.Cog):
                 ephemeral=True,
             )
 
-    @gpt.command(
-        name="summarize_chat",
-        description="Summarize the last n messages in the current channel",
-        guild_ids=util.guilds,
-    )
+    @gpt.command(guild_ids=util.guilds)
     async def summarize_chat(
         self,
         ctx: discord.ApplicationContext,
@@ -376,6 +360,7 @@ class ChatGPT(commands.Cog):
             default=None,
         ),
     ):
+        """Summarize the last n messages in the current channel"""
         gu = self.get_user_from_context(ctx)
         if ctx.channel.is_nsfw():
             await ctx.respond(
@@ -429,17 +414,14 @@ class ChatGPT(commands.Cog):
                     content="Sorry, can't generate a summary right now."
                 )
 
-    @gpt.command(
-        name="load_core",
-        description="Load a soul core (warning: resets conversation)",
-        guild_ids=util.guilds,
-    )
+    @gpt.command(guild_ids=util.guilds)
     async def load_core(
         self,
         ctx: discord.ApplicationContext,
         core: Option(str, autocomplete=util.souls.scan_cores, required=True),
         telepathy: Option(bool, default=True, description="Show thinking"),
     ):
+        """Load a soul core (warning: resets conversation)"""
         try:
             with open(f"cores/{core.split(' ')[0]}") as file:
                 core_data = yaml.safe_load(file)
@@ -453,8 +435,9 @@ class ChatGPT(commands.Cog):
             return
         await ctx.respond(f"{core} has been loaded", ephemeral=True)
 
-    @gpt.command(name="help", description="Explain how this all works")
-    async def display_help(self, ctx: discord.ApplicationContext):
+    @gpt.command(guild_ids=util.guilds)
+    async def help(self, ctx: discord.ApplicationContext):
+        """Explain how this all works"""
         help_embed = discord.Embed(title="AI Chatbot Help", color=0x3498DB)
         help_embed.description = f"""I can use AI to hold a conversation. Just @mention me! I also accept DMs if you 
         are in a server with me.
@@ -481,11 +464,7 @@ class ChatGPT(commands.Cog):
         await ctx.respond(embed=help_embed, ephemeral=True)
 
     # noinspection PyTypeHints
-    @gpt.command(
-        name="toggle_flags",
-        description="Toggles user flags on/off",
-        guild_ids=util.guilds,
-    )
+    @gpt.command(guild_ids=util.guilds)
     async def toggle_flags(
         self,
         ctx,
@@ -496,6 +475,7 @@ class ChatGPT(commands.Cog):
             required=True,
         ),
     ):
+        """Toggles user flags on/off"""
         gu = self.get_user_from_context(ctx)
         flag_to_toggle = UserConfig[flag]
 
@@ -512,12 +492,9 @@ class ChatGPT(commands.Cog):
             ephemeral=True,
         )
 
-    @gpt.command(
-        name="show_flags",
-        description="Show your AI settings",
-        guild_ids=util.guilds,
-    )
+    @gpt.command(guild_ids=util.guilds)
     async def show_flags(self, ctx):
+        """Show your AI settings"""
         gu = self.get_user_from_context(ctx)
         out = f"```md\n# AI settings for {gu.name}:\n"
         for k in UserConfig.__members__.keys():
@@ -526,11 +503,7 @@ class ChatGPT(commands.Cog):
         out += "```"
         await ctx.respond(out, ephemeral=True)
 
-    @gpt.command(
-        name="translate",
-        description="Translate across languages",
-        guild_ids=util.guilds,
-    )
+    @gpt.command(guild_ids=util.guilds)
     async def translate(
         self,
         ctx,
@@ -543,6 +516,7 @@ class ChatGPT(commands.Cog):
             default=False,
         ),
     ):
+        """Translate across languages"""
         await ctx.defer()
         prompt = (
             f"You are an expert translator, fluent in both {from_language} and {to_language}. "
