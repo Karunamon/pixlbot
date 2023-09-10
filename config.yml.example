@@ -8,6 +8,7 @@ system:
     - cogs.yoink
     - cogs.ftime
     - cogs.roller
+    - cogs.reminder
     #- cogs.chatgpt
     #- cogs.roleconcat
     #- cogs.bonk
