@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from datetime import datetime, timedelta
 from hashlib import sha256
 from typing import List, Optional, TypedDict, Literal
@@ -7,6 +6,10 @@ from enum import Flag, auto
 from util.souls import Soul, SOUL_PROMPT
 
 import tiktoken
+import openai
+import anthropic
+
+anthropic_api = anthropic.AsyncAnthropic()
 
 
 class ConversationLine(TypedDict):
@@ -24,12 +27,52 @@ class UserConfig(Flag):
 DEFAULT_FLAGS = UserConfig.SHOWSTATS | UserConfig.NAMESUFFIX
 
 
-@dataclass
 class Model:
-    model: str = "gpt-3.5-turbo"
-    max_tokens: int = 768
-    temperature: float = 0.5
-    max_context: int = 4097
+    def __init__(
+        self,
+        model: str = "gpt-3.5-turbo",
+        max_tokens: int = 768,
+        temperature: float = 0.5,
+        max_context: int = 4097,
+        vendor: Literal["openai", "anthropic"] = "openai",
+    ):
+        self.model = model
+        self.max_tokens = max_tokens
+        self.temperature = temperature
+        self.max_context = max_context
+        self.vendor = vendor
+
+    async def send(self, conversation: List[ConversationLine]) -> Optional[str]:
+        if self.vendor == "openai":
+            return await self._openai_send(conversation)
+        elif self.vendor == "anthropic":
+            return await self._anthropic_send(conversation)
+
+    async def _openai_send(self, conversation: List[ConversationLine]) -> Optional[str]:
+        response = await openai.ChatCompletion.acreate(
+            model=self.model,
+            max_tokens=self.max_tokens,
+            temperature=self.temperature,
+            messages=conversation,
+            n=1,
+            stop=None,
+        )
+        return response.choices[0]["message"]["content"]
+
+    async def _anthropic_send(
+        self, conversation: List[ConversationLine]
+    ) -> Optional[str]:
+        sysprompt = [l for l in conversation if l["role"] == "system"][0]
+        conversation = [l for l in conversation if l["role"] != "system"]
+        # noinspection PyTypeChecker
+        response = await anthropic_api.messages.create(
+            model=self.model,
+            max_tokens=self.max_tokens,
+            temperature=self.temperature,
+            messages=conversation,
+            system=sysprompt["content"],
+        )
+        return response.content[0].text
 
 
 class GPTUser:
@@ -66,7 +109,7 @@ class GPTUser:
         uname: str,
         sysprompt: str,
         prompt_info: Optional[str],
-        model: Model = Model(),
+        model: Model,
         config: UserConfig = DEFAULT_FLAGS,
     ):
         """
@@ -87,10 +130,12 @@ class GPTUser:
         self._soul = None
         self.prompt_info = prompt_info
         self._model = model
-        self._encoding = tiktoken.encoding_for_model(model.model)
+        self._encoding = tiktoken.encoding_for_model("gpt-4")
         self._conversation_len = self._calculate_conversation_len()
         if UserConfig.NAMESUFFIX in config:
             self._add_namesuffix()
+        if not model:
+            self._model = Model()
 
     @property
     def conversation(self):
@@ -107,9 +152,11 @@ class GPTUser:
     def format_conversation(self, bot_name: str) -> str:
         """Returns a pretty-printed version of user's conversation history with system prompts removed"""
         formatted_conversation = [
-            f"{self.name}: {msg['content']}"
-            if msg["role"] == "user"
-            else f"{bot_name}: {msg['content']}"
+            (
+                f"{self.name}: {msg['content']}"
+                if msg["role"] == "user"
+                else f"{bot_name}: {msg['content']}"
+            )
             for msg in self.conversation
             if msg["role"] != "system"
         ]

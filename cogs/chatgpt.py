@@ -5,7 +5,6 @@ from typing import List, Optional, Dict
 import discord
 import openai
 import yaml
-from openai import ChatCompletion
 from discord.commands import SlashCommandGroup, Option
 from discord.ext import commands
 from blitzdb import Document, FileBackend
@@ -29,7 +28,8 @@ class ChatGPT(commands.Cog):
         self.users: Dict[int, GPTUser] = {}
         self.backend = FileBackend("db")
         self.backend.autocommit = True
-        openai.api_key = self.config["api_key"]
+        openai.api_key = self.config["openai_api_key"]
+        util.chatgpt.anthropic_api.api_key = self.config["anthropic_api_key"]
         bot.logger.info("ChatGPT integration initialized")
 
     @contextmanager
@@ -42,7 +42,7 @@ class ChatGPT(commands.Cog):
         yield pu
         self.backend.save(pu)
 
-    async def send_to_chatgpt(self, user, conversation=None) -> Optional[str]:
+    async def send_to_model(self, user, conversation=None) -> Optional[str]:
         """Sends a conversation to OpenAI for chat completion and returns what the model said in reply. The model
         details will be read from the provided GPTUser. If a conversation is provided, it will be sent to the model.
         Otherwise, the conversation will be read from the user object.
@@ -52,16 +52,8 @@ class ChatGPT(commands.Cog):
         :return: The response from the model, or none if there was a problem
         """
         try:
-            response = await ChatCompletion.acreate(
-                model=user.model.model,
-                max_tokens=user.model.max_tokens,
-                temperature=user.model.temperature,
-                messages=conversation or user.conversation,
-                n=1,
-                stop=None,
-                user=user.idhash,
-            )
-            return response.choices[0]["message"]["content"]
+            response = await user.model.send(conversation or user.conversation)
+            return response
         except Exception as e:
             self.bot.logger.error(e)
             return None
@@ -96,7 +88,9 @@ class ChatGPT(commands.Cog):
                     uname=context.author.display_name,
                     sysprompt=sysprompt or server_config["system_prompt"],
                     prompt_info=promptinfo,
-                    model=Model(server_config["model_name"]),
+                    model=Model(
+                        server_config["model_name"], vendor=server_config["vendor"]
+                    ),
                     config=UserConfig(pu.config),
                 )
         return gu
@@ -184,7 +178,7 @@ class ChatGPT(commands.Cog):
             overflow.append(gu.pop_conversation(0))
 
         async with message.channel.typing():
-            response = await self.send_to_chatgpt(gu)
+            response = await self.send_to_model(gu)
             telembed = None
             warnings = ""
             stats = ""
@@ -404,7 +398,7 @@ class ChatGPT(commands.Cog):
             )
             # noinspection PyTypeChecker
             # This is a lint bug
-            summary = await self.send_to_chatgpt(gu, conversation)
+            summary = await self.send_to_model(gu, conversation)
             if summary:
                 await loading_message.edit(
                     content=f"Summary of the last {num_messages} messages:\n\n{summary}"
@@ -531,7 +525,7 @@ class ChatGPT(commands.Cog):
         )
         gu.push_conversation({"role": "user", "content": text})
         async with ctx.channel.typing():
-            response = await self.send_to_chatgpt(gu)
+            response = await self.send_to_model(gu)
             if not response:
                 response = "Sorry, could not communicate with OpenAI. Please try again."
                 gu.pop_conversation()
