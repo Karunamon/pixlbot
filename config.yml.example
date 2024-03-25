@@ -9,6 +9,8 @@ system:
     - cogs.ftime
     - cogs.roller
     - cogs.reminder
+    - cogs.crumbl
+
     #- cogs.chatgpt
     #- cogs.roleconcat
     #- cogs.bonk

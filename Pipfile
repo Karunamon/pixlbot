@@ -15,6 +15,7 @@ dateparser = "*"
 pytz = "*"
 recurrent = "*"
 anthropic = "~=0.21.1"
+beautifulsoup4 = "*"
 
 [dev-packages]
 pytest = "*"
