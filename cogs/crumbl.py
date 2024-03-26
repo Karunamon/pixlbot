@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime
 import pytz
 
 import aiohttp
@@ -21,6 +21,52 @@ class CrumblNotificationChannel(Document):
     pass
 
 
+def ingredients_to_emoji(ingredients):
+    emoji_map = {
+        "Milk": "🥛",
+        "Wheat": "🌾",
+        "Egg": "🥚",
+        "Soy": "🌱",
+        "Tree Nuts": "🌰",
+        "Peanuts": "🥜",
+    }
+
+    ingredient_list = ingredients.split(", ")
+    emoji_list = [emoji_map.get(ingredient, "") for ingredient in ingredient_list]
+    emoji_string = " ".join(emoji_list)
+
+    return emoji_string
+
+
+async def get_cookie_content(url) -> list[dict[str, str]]:
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            html_content = await response.text()
+
+    soup = BeautifulSoup(html_content, "html.parser")
+
+    names = [name.text.strip() for name in soup.select("b.text-lg.sm\:text-xl")]
+    descriptions = [
+        description.text.strip() for description in soup.select("p.text-sm.sm\:text-lg")
+    ]
+    ingredients = [
+        ingredient.text.strip()
+        for ingredient in soup.select(
+            "div.border-t.border-solid.border-lightGray > span"
+        )
+    ]
+
+    content = []
+    for name, description, ingredient in zip(names, descriptions, ingredients):
+        cookie_flavor = {
+            "name": name,
+            "description": description,
+            "ingredients": ingredient,
+        }
+        content.append(cookie_flavor)
+    return content
+
+
 class CrumblWatch(commands.Cog):
     crumbl = SlashCommandGroup(
         name="crumbl", guild_ids=guilds, description="Crumbl Cookie Watcher"
@@ -33,26 +79,10 @@ class CrumblWatch(commands.Cog):
         self.backend.autocommit = True
 
         # Specify the URL of the web page you want to scrape
-        url = "https://crumblcookies.com/nutrition/regular"
+        self.url = "https://crumblcookies.com/nutrition/regular"
 
         # Start the background task to monitor the website content
-        self.bot.loop.create_task(self.check_website_content(url))
-
-    async def get_b_element_content(self, url):
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
-                html_content = await response.text()
-
-        # Create a BeautifulSoup object to parse the HTML content
-        soup = BeautifulSoup(html_content, "html.parser")
-
-        # Find all <b> elements with the specified class
-        b_elements = soup.find_all("b", class_="text-lg sm:text-xl")
-
-        # Extract the content of each <b> element
-        content = [element.get_text(strip=True) for element in b_elements]
-
-        return content
+        self.bot.loop.create_task(self.check_website_content(self.url))
 
     async def check_website_content(self, url):
         while True:
@@ -69,18 +99,18 @@ class CrumblWatch(commands.Cog):
             # If there is no last result saved or it's Sunday and after 6 PM
             if not last_result or (now.weekday() == 6 and now.hour >= 18):
                 # Call the function to get the content of <b> elements
-                b_content = await self.get_b_element_content(url)
+                cookie_flavors = await get_cookie_content(url)
 
                 # If there is no last result saved, create a new one
                 if not last_result:
                     last_result = CrumblFlavor(
-                        {"id": "last_result", "flavors": b_content}
+                        {"id": "last_result", "flavors": cookie_flavors}
                     )
                     self.backend.save(last_result)
 
                 # If the content has changed or it's the first scrape
-                if b_content != last_result["flavors"]:
-                    last_result["flavors"] = b_content
+                if cookie_flavors != last_result["flavors"]:
+                    last_result["flavors"] = cookie_flavors
                     self.backend.save(last_result)
 
                     # Get all channels with notifications enabled
@@ -99,7 +129,13 @@ class CrumblWatch(commands.Cog):
                                     255, 192, 203
                                 ),  # Pink color
                             )
-                            embed.add_field(name="Flavors", value="\n".join(b_content))
+                            for flavor in cookie_flavors:
+                                embed.add_field(
+                                    name=flavor["name"],
+                                    value=flavor["description"]
+                                    + f"\n{flavor['ingredients']}",
+                                )
+
                             await channel.send(embed=embed)
 
             # Wait for a certain interval before checking again
@@ -140,14 +176,14 @@ class CrumblWatch(commands.Cog):
     )
     async def force_update(self, ctx: ApplicationContext):
         url = "https://crumblcookies.com/nutrition/regular"
-        b_content = await self.get_b_element_content(url)
+        cookie_flavors = await get_cookie_content(url)
 
         # Update the last result
         try:
             last_result = self.backend.get(CrumblFlavor, {"id": "last_result"})
-            last_result["flavors"] = b_content
+            last_result["flavors"] = cookie_flavors
         except CrumblFlavor.DoesNotExist:
-            last_result = CrumblFlavor({"id": "last_result", "flavors": b_content})
+            last_result = CrumblFlavor({"id": "last_result", "flavors": cookie_flavors})
         self.backend.save(last_result)
 
         # Get all channels with notifications enabled
@@ -162,7 +198,11 @@ class CrumblWatch(commands.Cog):
                     description="The Crumbl Cookie flavors have been forcefully updated!",
                     color=discord.Color.from_rgb(255, 192, 203),  # Pink color
                 )
-                embed.add_field(name="Flavors", value="\n".join(b_content))
+                for flavor in cookie_flavors:
+                    embed.add_field(
+                        name=flavor["name"],
+                        value=flavor["description"] + f"\n{flavor['ingredients']}",
+                    )
                 await channel.send(embed=embed)
 
         await ctx.respond(
