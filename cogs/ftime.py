@@ -28,7 +28,7 @@ class FelysianClock(commands.Cog):
     async def now(self, ctx: ApplicationContext):
         await ctx.defer()
         timediff = datetime.now(timezone.utc) - zerotime
-        secs = floor(zerof + timediff.total_seconds())
+        secs = int(zerof + timediff.total_seconds())
         strsecs = str(secs)
         await ctx.respond(
             f"`{strsecs[0:4]}:{strsecs[4:7]}.{strsecs[7:10]}.{strsecs[10:13]}`"
@@ -45,13 +45,11 @@ class FelysianClock(commands.Cog):
             date: discord.Option(str, "A Felysian time like 6012:207.604.595"),
     ):
         await ctx.defer()
-        m = re.match(r"^\d{13}$", date) or re.match(
-            r"^\d{4}[:.]\d{3}.\d{3}.\d{3}$", date
-        )
+        m = re.match(r"^\d{13}$|^\d{4}[:.]\d{3}.\d{3}.\d{3}$", date)
         if not m:
             await ctx.respond("Invalid date.")
             return
-        givenf = int(m.string.replace(":", "").replace(".", ""))
+        givenf = int(re.sub(r"[:.]", "", m.string))
         tdf = zerof - givenf
         te = zerotime - timedelta(seconds=tdf)
         await ctx.respond(te.strftime(f"{date} is %A, %b %d %Y at %H:%M:%S"))
