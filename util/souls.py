@@ -22,8 +22,8 @@ def format_from_soul(txt: str) -> (Optional[str], list):
 
 
 def scan_cores(*args):
-    for f in os.listdir("cores"):
-        sc = yaml.safe_load(open(f"cores/{f}"))
+    for f in os.listdir("ai/cores"):
+        sc = yaml.safe_load(open(f"ai/cores/{f}"))
         cores[f] = sc["name"]
     return [f"{k} ({cores[k]})" for k in cores]
 

@@ -68,6 +68,7 @@ class PixlBot(Bot, ABC):
                     self.logger.error(f"Skipping {ext}")
                     continue
             self.loaded = True
+            self.logger.info("Cog loading completed")
 
     async def on_ready(self):
         self.logger.info("Ready!")
