@@ -7,3 +7,4 @@ notes.md
 db/
 __pycache__
 .DS_Store
+cogs/dev.py
